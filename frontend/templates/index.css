@@ -113,7 +113,13 @@ input, button {
 }
 
 /* 当没有输入内容时，输入框高度与发送按钮统一 */
-#textInput:placeholder-shown { min-height: var(--composer-h); }
+#textInput:placeholder-shown {
+  height: var(--composer-h);
+  min-height: var(--composer-h);
+  padding-top: 0; padding-bottom: 0;
+  line-height: calc(var(--composer-h) - 2px);
+  overflow-y: hidden;
+}
 #sendBtn { height: var(--composer-h); }
 
 /* 滚动优化，避免页面级别回弹影响 */

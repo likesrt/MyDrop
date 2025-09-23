@@ -131,25 +131,15 @@ function bindChat() {
 
   const maxRows = 5;
   const syncHeight = () => {
+    // 占位状态下交由 CSS 控制高度与垂直居中
+    if (!textInput.value) { textInput.style.height = ''; return; }
+
     textInput.style.height = 'auto';
-    const lineHeight = parseFloat(getComputedStyle(textInput).lineHeight) || 20;
     const styles = getComputedStyle(textInput);
+    const lineHeight = parseFloat(styles.lineHeight) || 20;
     const padding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
     const max = lineHeight * maxRows + padding;
     textInput.style.height = Math.min(textInput.scrollHeight, max) + 'px';
-
-    // 垂直居中占位符：在无内容时，根据当前高度与行高动态分配上下内边距
-    if (!textInput.value) {
-      const h = textInput.clientHeight;
-      const lh = lineHeight;
-      const pad = Math.max((h - lh) / 2, 6);
-      textInput.style.paddingTop = pad + 'px';
-      textInput.style.paddingBottom = pad + 'px';
-    } else {
-      // 还原为初始内边距（由样式表控制）
-      textInput.style.paddingTop = '';
-      textInput.style.paddingBottom = '';
-    }
   };
   ['input','change'].forEach(evt => textInput.addEventListener(evt, syncHeight));
   setTimeout(syncHeight, 0);
