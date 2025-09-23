@@ -113,8 +113,9 @@ function renderMessage(m, opts = {}) {
   const row = isMine ? 'justify-end' : 'justify-start';
   const align = isMine ? 'items-end text-left' : 'items-start text-left';
   const sidePad = isMine ? 'pr-3 sm:pr-0' : 'pl-3 sm:pl-0';
-  let bubbleCls = isMine ? 'bubble bubble-mine bubble-shadow' : 'bubble bubble-other bubble-shadow ring-1 ring-slate-200';
-  if (opts.tail) bubbleCls += isMine ? ' bubble-tail-right' : ' bubble-tail-left';
+  let bubbleCls = isMine
+    ? 'bubble bubble-mine bubble-shadow bubble-tail-right'
+    : 'bubble bubble-other bubble-shadow ring-1 ring-slate-200 bubble-tail-left';
   const name = m.sender?.alias || (m.sender_device_id ? window.MyDropUtils.shortId(m.sender_device_id) : null) || '已删除设备';
   const time = new Date(m.created_at).toLocaleString();
   const textHTML = renderMarkdownWithCards(m.text || '');
@@ -122,7 +123,7 @@ function renderMessage(m, opts = {}) {
   return `
     <div class="w-full flex ${row}" id="message-${m.id}">
       <div class="max-w-[88%] sm:max-w-[80%] min-w-0 flex flex-col ${align} ${sidePad}">
-        <div class="${bubbleCls} text-sm leading-relaxed ${opts.tight ? 'mt-0.5' : ''} overflow-hidden break-words">
+        <div class="${bubbleCls} text-sm leading-relaxed ${opts.tight ? 'mt-0.5' : ''} break-words">
           ${textHTML}
           ${fileBlocks}
           <div class="mt-2 flex items-center justify-end">
