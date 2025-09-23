@@ -44,6 +44,8 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger(logger));
+// Ensure local vendor assets are present (copy from node_modules if missing)
+try { require('./scripts/copy-vendor'); } catch (_) {}
 // Serve built static assets (Tailwind CSS, vendor libs) under templates/static
 const TEMPLATES_DIR = path.join(__dirname, 'templates');
 app.use('/static', express.static(path.join(TEMPLATES_DIR, 'static')));

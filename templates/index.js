@@ -609,7 +609,7 @@
     input.focus();
   }
 
-  function applyToolbar(tool, textarea, onChanged) {
+  async function applyToolbar(tool, textarea, onChanged) {
     const t = textarea;
     const start = t.selectionStart || 0;
     const end = t.selectionEnd || 0;
