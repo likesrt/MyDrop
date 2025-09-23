@@ -99,6 +99,8 @@ async function appendMessageToList(newMsg) {
 }
 
 function bindChat() {
+  // 移动端自动隐藏 Header
+  try { if (window.MyDropState?.config?.headerAutoHide) window.MyDropUI.setupAutoHideHeader(true); } catch (_) {}
   window.MyDropUtils.qs('#logoutBtn').addEventListener('click', async () => {
     try { await window.MyDropAPI.api('/logout', { method: 'POST' }); location.reload(); } catch (e) { window.MyDropUI.toast(window.MyDropUI.formatError(e, '退出登录失败'), 'error'); }
   });
@@ -172,18 +174,71 @@ function bindChat() {
       }
     }
 
+    // Build optimistic message
+    const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const optimistic = {
+      id: tempId,
+      sender_device_id: window.MyDropState.me?.device?.device_id || null,
+      text,
+      created_at: Date.now(),
+      sender: window.MyDropState.me?.device || null,
+      uploading: files.length > 0,
+      _progress: files.length > 0 ? 0 : undefined,
+      files: files.map(f => ({ original_name: f.name, size: f.size, mime_type: f.type, uploading: true }))
+    };
+    window.MyDropState.messages.push(optimistic);
+    appendMessageToList(optimistic);
+
+    // Prepare payload
     const fd = new FormData();
     fd.append('text', text);
     for (const f of files) fd.append('files', f);
 
+    const updateProgress = (pct) => {
+      optimistic._progress = pct;
+      try {
+        const root = document.querySelector('#message-' + CSS.escape(tempId));
+        if (!root) return;
+        const bar = root.querySelector('[data-role="msg-progress"]');
+        const label = root.querySelector('[data-role="msg-progress-text"]');
+        if (bar) bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+        if (label) label.textContent = Math.max(0, Math.min(100, Math.round(pct))) + '%';
+      } catch (_) {}
+    };
+
     try {
-      const j = await window.MyDropAPI.api('/message', { method: 'POST', body: fd });
+      const j = await uploadMessageWithProgress(fd, updateProgress);
       const saved = j && j.message ? j.message : null;
-      if (saved && !window.MyDropState.messages.some(m => m.id === saved.id)) {
-        window.MyDropState.messages.push(saved);
-        appendMessageToList(saved);
+      // Replace optimistic with saved
+      const idx = window.MyDropState.messages.findIndex(m => m.id === tempId);
+      if (idx >= 0 && saved) {
+        // Deduplicate if WS already delivered the saved message
+        const dupIdx = window.MyDropState.messages.findIndex((m, i) => i !== idx && String(m.id) === String(saved.id));
+        if (dupIdx >= 0) {
+          // Remove optimistic entry and keep the server-delivered one
+          window.MyDropState.messages.splice(idx, 1);
+        } else {
+          window.MyDropState.messages[idx] = saved;
+        }
+        try {
+          const prevHtml = (idx - 1 >= 0) ? await window.MyDropRender.renderMessageWithGrouping(idx - 1) : null;
+          const currIdx = window.MyDropState.messages.findIndex(m => String(m.id) === String(saved.id));
+          const currHtml = await window.MyDropRender.renderMessageWithGrouping(currIdx);
+          const list = document.querySelector('#messageList');
+          const oldNode = document.querySelector('#message-' + CSS.escape(tempId)) || document.querySelector('#message-' + CSS.escape(String(saved.id)));
+          if (prevHtml) {
+            const t = document.createElement('div'); t.innerHTML = prevHtml; const prevNode = t.firstElementChild;
+            const prevOld = document.querySelector('#message-' + window.MyDropState.messages[currIdx - 1]?.id);
+            if (prevNode && prevOld) prevOld.replaceWith(prevNode);
+          }
+          if (currHtml && oldNode) {
+            const t2 = document.createElement('div'); t2.innerHTML = currHtml; const newNode = t2.firstElementChild;
+            if (newNode) oldNode.replaceWith(newNode);
+          }
+        } catch (_) { try { await window.MyDropApp.render(); } catch (_) {} }
       }
 
+      // Reset inputs
       textInput.value = '';
       fileInput.value = '';
       selectedFiles.textContent = '';
@@ -196,6 +251,20 @@ function bindChat() {
         } catch (_) {}
       }, 50);
     } catch (err) {
+      // remove optimistic
+      const idx = window.MyDropState.messages.findIndex(m => m.id === tempId);
+      if (idx >= 0) {
+        window.MyDropState.messages.splice(idx, 1);
+        try { const el = document.querySelector('#message-' + CSS.escape(tempId)); if (el) el.remove(); } catch (_) {}
+        // Update neighbors grouping
+        try {
+          if (idx - 1 >= 0) {
+            const htmlPrev = await window.MyDropRender.renderMessageWithGrouping(idx - 1);
+            const prevOld = document.querySelector('#message-' + window.MyDropState.messages[idx - 1].id);
+            const t = document.createElement('div'); t.innerHTML = htmlPrev; const prevNode = t.firstElementChild; if (prevNode && prevOld) prevOld.replaceWith(prevNode);
+          }
+        } catch (_) {}
+      }
       window.MyDropUI.toast(window.MyDropUI.formatError(err, '发送失败'), 'error');
     }
   });
@@ -262,17 +331,50 @@ function bindChat() {
     window.MyDropState._copyBound = true;
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-copy-mid]');
-      if (!btn) return;
-      e.preventDefault();
-      const id = parseInt(btn.getAttribute('data-copy-mid'), 10);
-      const msg = window.MyDropState.messages.find(x => x.id === id);
-      const text = (msg?.text || '').toString();
-      if (!text) { window.MyDropUI.toast('无可复制文本', 'warn'); return; }
-      try {
-        await window.MyDropUI.copyToClipboard(text);
-        window.MyDropUI.toast('已复制', 'success');
-      } catch (_) {
-        window.MyDropUI.toast('复制失败', 'error');
+      if (btn) {
+        e.preventDefault();
+        const idAttr = btn.getAttribute('data-copy-mid');
+        const msg = window.MyDropState.messages.find(x => String(x.id) === String(idAttr));
+        const text = (msg?.text || '').toString();
+        if (!text) { window.MyDropUI.toast('无可复制文本', 'warn'); return; }
+        try { await window.MyDropUI.copyToClipboard(text); window.MyDropUI.toast('已复制', 'success'); }
+        catch (_) { window.MyDropUI.toast('复制失败', 'error'); }
+        return;
+      }
+      const del = e.target.closest('[data-delete-mid]');
+      if (del) {
+        e.preventDefault();
+        const idAttr = del.getAttribute('data-delete-mid');
+        const msg = window.MyDropState.messages.find(x => String(x.id) === String(idAttr));
+        if (!msg || !msg.id || String(msg.id).startsWith('tmp-')) return; // ignore optimistic
+        const ok1 = await window.MyDropUI.showConfirm('确认删除该消息？');
+        if (!ok1) return;
+        try {
+          await window.MyDropAPI.api('/admin/message/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messageId: msg.id }) });
+          // remove locally
+          const idx = window.MyDropState.messages.findIndex(m => String(m.id) === String(idAttr));
+          if (idx >= 0) {
+            const oldEl = document.querySelector('#message-' + CSS.escape(String(idAttr)));
+            window.MyDropState.messages.splice(idx, 1);
+            try { if (oldEl) oldEl.remove(); } catch (_) {}
+            // re-render neighbors
+            try {
+              if (idx - 1 >= 0) {
+                const prevHtml = await window.MyDropRender.renderMessageWithGrouping(idx - 1);
+                const prevOld = document.querySelector('#message-' + window.MyDropState.messages[idx - 1].id);
+                const t = document.createElement('div'); t.innerHTML = prevHtml; const prevNode = t.firstElementChild; if (prevNode && prevOld) prevOld.replaceWith(prevNode);
+              }
+              if (idx < window.MyDropState.messages.length) {
+                const currHtml = await window.MyDropRender.renderMessageWithGrouping(idx);
+                const currOld = document.querySelector('#message-' + window.MyDropState.messages[idx].id);
+                const t2 = document.createElement('div'); t2.innerHTML = currHtml; const currNode = t2.firstElementChild; if (currNode && currOld) currOld.replaceWith(currNode);
+              }
+            } catch (_) {}
+          }
+          window.MyDropUI.toast('已删除消息', 'success');
+        } catch (err) {
+          window.MyDropUI.toast(window.MyDropUI.formatError(err, '删除失败'), 'error');
+        }
       }
     });
   }
@@ -287,3 +389,31 @@ window.MyDropChat = {
   addFilesToInput,
   appendMessageToList
 };
+
+// 使用 XMLHttpRequest 以支持上传进度
+function uploadMessageWithProgress(formData, onProgress) {
+  return new Promise((resolve, reject) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/message');
+      xhr.responseType = 'json';
+      if (xhr.upload && typeof onProgress === 'function') {
+        xhr.upload.onprogress = (e) => {
+          if (e && e.lengthComputable) {
+            const pct = (e.total > 0) ? (e.loaded / e.total) * 100 : 0;
+            onProgress(Math.round(pct));
+          }
+        };
+      }
+      xhr.onload = () => {
+        const s = xhr.status || 0;
+        const body = xhr.response || null;
+        if (s >= 200 && s < 300) return resolve(body);
+        const msg = (body && body.error) ? body.error : '上传失败';
+        const err = new Error(msg); err.status = s; reject(err);
+      };
+      xhr.onerror = () => reject(new Error('网络错误'));
+      xhr.send(formData);
+    } catch (err) { reject(err); }
+  });
+}

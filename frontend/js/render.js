@@ -75,7 +75,11 @@ function isVideo(f) {
 async function renderFilePreviews(files) {
   if (!files.length) return '';
   const parts = await Promise.all(files.map(async (f) => {
-    const name = window.MyDropUtils.escapeHTML(f.original_name || '');
+    const name = window.MyDropUtils.escapeHTML(f.original_name || f.name || '');
+    if (f.uploading || !f.id) {
+      const size = window.MyDropUtils.formatBytes(f.size || 0);
+      return await window.MyDropTemplates.getTemplate('message-file-uploading', { name, size });
+    }
     if (isImage(f)) {
       return await window.MyDropTemplates.getTemplate('message-file-image', { id: f.id, name });
     }
@@ -109,6 +113,12 @@ async function renderMessage(m, opts = {}) {
   const time = new Date(m.created_at).toLocaleString();
   const textHTML = renderMarkdownWithCards(m.text || '');
   const fileBlocks = await renderFilePreviews(m.files || []);
+  const isUploading = !!(m.uploading || (m.files || []).some(f => f.uploading));
+  let progressHTML = '';
+  if (isUploading) {
+    const pct = Math.max(0, Math.min(100, Math.round(m._progress || 0)));
+    progressHTML = await window.MyDropTemplates.getTemplate('message-upload-progress', { progress: String(pct) });
+  }
   const metaHTML = opts.showMeta ? `<div class="text-[11px] text-slate-400 mt-1">${window.MyDropUtils.escapeHTML(name)} · ${time}</div>` : '';
   return await window.MyDropTemplates.getTemplate('message-item', {
     id: m.id,
@@ -119,6 +129,7 @@ async function renderMessage(m, opts = {}) {
     tightMargin: opts.tight ? 'mt-0.5' : '',
     textHTML,
     fileBlocks,
+    progressHTML,
     metaHTML,
   });
 }
