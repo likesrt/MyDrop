@@ -248,6 +248,10 @@ body { background: var(--bg) !important; color: var(--text); }
 #fileBtn:hover { background: rgba(148,163,184,0.12); }
 #fsEditBtn { background: var(--surface); border-color: var(--border); color: var(--text); }
 #fsEditBtn:hover { background: rgba(148,163,184,0.12); }
+#settingsBtn { background: var(--surface); border-color: var(--border); color: var(--text); }
+#settingsBtn:hover { background: rgba(148,163,184,0.12); }
+#themeToggleBtn { background: var(--surface); border-color: var(--border); color: var(--text); }
+#themeToggleBtn:hover { background: rgba(148,163,184,0.12); }
 
 /* 表单控件（设置页等） */
 input[type="text"], input[type="password"], input[type="search"], input:not([type]), select, textarea {
