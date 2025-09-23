@@ -411,6 +411,13 @@
           const j = await res.json().catch(() => ({}));
           throw new Error(j.error || '发送失败');
         }
+        // 使用响应体中的已保存消息，立即追加，避免等待 WS 回环
+        let saved = null;
+        try { const j = await res.json(); saved = j && j.message ? j.message : null; } catch (_) {}
+        if (saved && !state.messages.some(m => m.id === saved.id)) {
+          state.messages.push(saved);
+          appendMessageToList(saved);
+        }
         textInput.value = '';
         fileInput.value = '';
         selectedFiles.textContent = '';
@@ -840,14 +847,17 @@
       try {
         const msg = JSON.parse(ev.data);
         if (msg.type === 'message') {
-          state.messages.push(msg.data);
-          // If new device shows up later, refresh device list lazily
-          const senderId = msg.data.sender_device_id;
-          if (senderId && !state.devices.find(d => d.device_id === senderId) && msg.data.sender) {
-            state.devices.unshift(msg.data.sender);
+          const incoming = msg.data;
+          if (!state.messages.some(m => m.id === incoming.id)) {
+            state.messages.push(incoming);
+            // 仅增量更新消息列表，避免刷新头部和失去焦点
+            appendMessageToList(incoming);
           }
-          // 仅增量更新消息列表，避免刷新头部和失去焦点
-          appendMessageToList(msg.data);
+          // If new device shows up later, refresh device list lazily
+          const senderId = incoming.sender_device_id;
+          if (senderId && !state.devices.find(d => d.device_id === senderId) && incoming.sender) {
+            state.devices.unshift(incoming.sender);
+          }
         } else if (msg.type === 'force-logout') {
           // 被管理员强制下线
           toast('已被管理员下线', 'warn');
