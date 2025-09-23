@@ -24,6 +24,10 @@ copy(path.join(root, 'node_modules', 'marked', 'marked.min.js'), path.join(vendo
 // DOMPurify
 copy(path.join(root, 'node_modules', 'dompurify', 'dist', 'purify.min.js'), path.join(vendor, 'dompurify.min.js'));
 
+// SweetAlert2 (optional)
+copy(path.join(root, 'node_modules', 'sweetalert2', 'dist', 'sweetalert2.all.min.js'), path.join(vendor, 'sweetalert2.all.min.js'));
+copy(path.join(root, 'node_modules', 'sweetalert2', 'dist', 'sweetalert2.min.css'), path.join(vendor, 'sweetalert2.min.css'));
+
 // Remove highlight.js related artifacts if present (we do not ship code highlighting)
 try { fs.rmSync(path.join(vendor, 'highlight.min.js'), { force: true }); } catch (_) {}
 try { fs.rmSync(path.join(vendor, 'highlight.css'), { force: true }); } catch (_) {}
