@@ -101,6 +101,7 @@
 
   async function init() {
     try {
+      try { await window.MyDropTemplates.preloadTemplates(); } catch (_) {}
       const me = await api('/me');
       qs('#currentUsername').textContent = me.user.username;
       currentDeviceId = me?.device?.device_id || null;
@@ -268,7 +269,7 @@
         );
         deviceSel.innerHTML = options.join('');
       }
-      const renderList = () => {
+      const renderList = async () => {
         const q = (searchBox.value || '').toLowerCase().trim();
         const selectedDid = (deviceSel?.value || '').trim();
         let filtered = items;
@@ -277,6 +278,7 @@
           filtered = filtered.filter(m => (m.text || '').toLowerCase().includes(q) || (m.files||[]).some(f => (f.original_name||'').toLowerCase().includes(q)));
         }
         filtered = filtered.slice().sort((a,b) => (b.created_at||0) - (a.created_at||0));
+        // legacy render (kept for fallback)
         root.innerHTML = filtered.map(m => {
           const time = new Date(m.created_at).toLocaleString();
           const sLabel = deviceLabel(m.sender);
@@ -294,6 +296,18 @@
               </div>
             </div>`;
         }).join('');
+        // template-based render (overrides legacy for consistency)
+        try {
+          const rows = await Promise.all(filtered.map(async (m) => {
+            const time = new Date(m.created_at).toLocaleString();
+            const sLabel = deviceLabel(m.sender);
+            const preview = (m.text || '').slice(0, 80).replace(/</g,'&lt;').replace(/>/g,'&gt;') || '<span class="text-slate-400">(无文本)</span>';
+            const files = (m.files||[]).map(f => `<div class=\"text-xs card-desc flex items-center gap-2\">📎 ${f.original_name} <button class=\"btn pressable\" data-action=\"file-del\" data-id=\"${f.id}\">删除文件</button></div>`).join('');
+            const filesHTML = files ? `<div class=\"mt-1 space-y-1\">${files}</div>` : '';
+            return await window.MyDropTemplates.getTemplate('admin-message-item', { id: m.id, time, senderLabel: sLabel, previewHTML: preview, filesHTML });
+          }));
+          root.innerHTML = rows.join('');
+        } catch (_) {}
 
         // bind actions
         root.querySelectorAll('[data-action="msg-del"]').forEach(b => b.addEventListener('click', async () => {

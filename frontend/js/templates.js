@@ -45,7 +45,10 @@ async function preloadTemplates() {
     'modal-confirm',
     'modal-prompt',
     'admin-dashboard-cards',
-    'admin-message-item'
+    'admin-message-item',
+    'message-file-image',
+    'message-file-video',
+    'message-file-generic'
   ];
 
   await Promise.all(

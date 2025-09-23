@@ -22,6 +22,7 @@
   /* light theme tokens */
   --bg: #f1f5f9;                 /* page background */
   --surface: #ffffff;            /* cards, panels */
+  --surface-modal: #ffffff;      /* modal surface (distinct from page) */
   --surface-elev: #ffffff;       /* elevated surfaces (toast/modal) */
   --surface-translucent: rgba(255,255,255,0.95);
   --text: #0f172a;               /* primary text */
@@ -44,6 +45,7 @@
   :root {
     --bg: #0b1220;
     --surface: #0f172a;
+    --surface-modal: #111827;    /* darker than surface for contrast */
     --surface-elev: #111827;
     --surface-translucent: rgba(15,23,42,0.9);
     --text: #e5e7eb;
@@ -341,7 +343,7 @@ section[id^="tab-"] { background: var(--surface); color: var(--text); border: 1p
 #fs-editor #fsPreview { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
 /* 弹窗卡片使用统一表面色（暗色纯色，日间干净） */
-#modal-root .modal-card { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+#modal-root .modal-card { background: var(--surface-modal); color: var(--text); border: 1px solid var(--border); box-shadow: 0 16px 36px rgba(2,6,23,0.45); }
 
 /* 全局统一文字颜色映射，保证不同页面一致；深浅色由变量控制 */
 :root .text-slate-800, :root .text-slate-900 { color: var(--text) !important; }

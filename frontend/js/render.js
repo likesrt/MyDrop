@@ -72,30 +72,19 @@ function isVideo(f) {
   return /\.(mp4|webm|ogg|mov|m4v)$/i.test(f.original_name || '');
 }
 
-function renderFilePreviews(files) {
+async function renderFilePreviews(files) {
   if (!files.length) return '';
-  const blocks = files.map(f => {
-    const url = `/file/${f.id}`;
-    const downloadUrl = `/file/${f.id}?download=1`;
+  const parts = await Promise.all(files.map(async (f) => {
+    const name = window.MyDropUtils.escapeHTML(f.original_name || '');
     if (isImage(f)) {
-      return `
-        <div class="mt-2">
-          <img src="${url}" alt="${window.MyDropUtils.escapeHTML(f.original_name)}" class="max-w-full max-h-64 rounded object-contain" />
-          <div class="text-xs mt-1"><a class="underline" href="${downloadUrl}" target="_blank">下载 (${window.MyDropUtils.escapeHTML(f.original_name)})</a></div>
-        </div>
-      `;
+      return await window.MyDropTemplates.getTemplate('message-file-image', { id: f.id, name });
     }
     if (isVideo(f)) {
-      return `
-        <div class="mt-2">
-          <video class="max-w-full max-h-64 rounded" src="${url}" controls playsinline></video>
-          <div class="text-xs mt-1"><a class="underline" href="${downloadUrl}" target="_blank">下载 (${window.MyDropUtils.escapeHTML(f.original_name)})</a></div>
-        </div>
-      `;
+      return await window.MyDropTemplates.getTemplate('message-file-video', { id: f.id, name });
     }
-    return `<div class="mt-2 text-xs"><a class="underline" href="${downloadUrl}" target="_blank">📎 ${window.MyDropUtils.escapeHTML(f.original_name)} (${window.MyDropUtils.formatBytes(f.size)})</a></div>`;
-  }).join('');
-  return blocks;
+    return await window.MyDropTemplates.getTemplate('message-file-generic', { id: f.id, name, size: window.MyDropUtils.formatBytes(f.size || 0) });
+  }));
+  return parts.join('');
 }
 
 async function renderMessageWithGrouping(i) {
@@ -119,7 +108,7 @@ async function renderMessage(m, opts = {}) {
   const name = m.sender?.alias || (m.sender_device_id ? window.MyDropUtils.shortId(m.sender_device_id) : null) || '已删除设备';
   const time = new Date(m.created_at).toLocaleString();
   const textHTML = renderMarkdownWithCards(m.text || '');
-  const fileBlocks = renderFilePreviews(m.files || []);
+  const fileBlocks = await renderFilePreviews(m.files || []);
   const metaHTML = opts.showMeta ? `<div class="text-[11px] text-slate-400 mt-1">${window.MyDropUtils.escapeHTML(name)} · ${time}</div>` : '';
   return await window.MyDropTemplates.getTemplate('message-item', {
     id: m.id,

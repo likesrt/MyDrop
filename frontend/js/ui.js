@@ -67,12 +67,7 @@ function showConfirm(message, { title = '确认', confirmText = '确定', cancel
     overlay.className = 'absolute inset-0 bg-black/50 transition-opacity';
     const card = document.createElement('div');
     card.className = 'relative modal-card rounded shadow-lg border w-full max-w-md p-4 space-y-3 anim-fadeIn';
-    window.MyDropTemplates.getTemplate('modal-confirm', {
-      title: window.MyDropUtils.escapeHTML(title),
-      message: window.MyDropUtils.escapeHTML(String(message||'')),
-      confirmText: window.MyDropUtils.escapeHTML(confirmText),
-      cancelText: window.MyDropUtils.escapeHTML(cancelText)
-    }).then(html => { card.innerHTML = html; });
+    // content will be set below when binding events
     root.innerHTML = '';
     root.appendChild(overlay);
     root.appendChild(card);
@@ -116,10 +111,7 @@ function showPrompt(message, defaultValue = '') {
     overlay.className = 'absolute inset-0 bg-black/50 transition-opacity';
     const card = document.createElement('div');
     card.className = 'relative modal-card rounded shadow-lg border w-full max-w-md p-4 space-y-3 anim-fadeIn';
-    window.MyDropTemplates.getTemplate('modal-prompt', {
-      title: window.MyDropUtils.escapeHTML(String(message||'')),
-      defaultValue: window.MyDropUtils.escapeHTML(String(defaultValue||''))
-    }).then(html => { card.innerHTML = html; });
+    // content will be set below when binding events
     root.innerHTML = '';
     root.appendChild(overlay);
     root.appendChild(card);
