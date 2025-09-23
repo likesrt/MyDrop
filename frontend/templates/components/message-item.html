@@ -3,11 +3,13 @@
     <div class="{{bubbleCls}} text-sm leading-relaxed {{tightMargin}} break-words">
       {{textHTML}}
       {{fileBlocks}}
+      {{progressHTML}}
       <div class="mt-2 flex items-center justify-end">
         <button class="text-[11px] text-slate-500 hover:text-slate-700 underline" data-copy-mid="{{id}}" title="复制文本">复制</button>
+        <span class="mx-1 text-slate-300 select-none">|</span>
+        <button class="text-[11px] text-rose-600 hover:text-rose-700 underline" data-delete-mid="{{id}}" title="删除消息">删除</button>
       </div>
     </div>
     {{metaHTML}}
   </div>
 </div>
-

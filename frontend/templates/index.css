@@ -232,6 +232,14 @@ body { background: var(--bg) !important; color: var(--text); }
   overscroll-behavior: contain;
 }
 
+/* 移动端：减少消息区两侧留白，并让气泡小角更贴近边缘 */
+@media (max-width: 640px) {
+  #messages { padding-left: 6px; padding-right: 6px; }
+  #messages .bubble-wrap { padding-left: 2px; padding-right: 2px; }
+  .bubble-tail-right::after { right: -6px; }
+  .bubble-tail-left::after { left: -6px; }
+}
+
 /* 确保聊天页面占满屏幕 */
 #app {
   height: 100vh;
@@ -240,6 +248,8 @@ body { background: var(--bg) !important; color: var(--text); }
 
 /* 顶部与底部区域（主题适配） */
 #mainHeader { background: var(--surface); border-color: var(--border); color: var(--text); }
+#mainHeader.auto-hide { transition: transform .4s ease, height .35s ease, padding .35s ease, border .35s ease; overflow: hidden; }
+#mainHeader.auto-hide.hidden { transform: translateY(-100%); height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; border-bottom-width: 0 !important; }
 #composer { background: var(--surface); border-color: var(--border); }
 
 /* 输入区控件与附件按钮（深浅色适配） */
@@ -262,27 +272,13 @@ input[type="text"], input[type="password"], input[type="search"], input:not([typ
 }
 input::placeholder, textarea::placeholder { color: var(--muted); }
 
-/* Toast 简单过渡 */
-.toast-enter { opacity: 0; transform: translateY(8px); }
-.toast-enter-active { transition: all .2s ease; opacity: 1; transform: translateY(0); }
-.toast-leave { opacity: 1; }
-.toast-leave-active { transition: opacity .2s ease; opacity: 0; }
-
-/* Toast 主题适配与类型色彩（暗色纯色，不使用渐变/高模糊） */
-.toast {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-left-width: 4px;
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  box-shadow: 0 10px 24px rgba(2,6,23,0.35);
-}
-:root { --accent-success: #10b981; --accent-warn: #f59e0b; --accent-error: #ef4444; }
-.toast--success { border-left-color: var(--accent-success); }
-.toast--warn { border-left-color: var(--accent-warn); }
-.toast--error { border-left-color: var(--accent-error); }
-.toast--info { border-left-color: var(--link); }
+/* SweetAlert2 深浅色主题适配 */
+.swal2-popup { background: var(--surface-modal) !important; color: var(--text) !important; border: 1px solid var(--border) !important; }
+.swal2-title, .swal2-html-container { color: var(--text) !important; }
+.swal2-actions .swal2-styled.swal2-confirm { background: var(--theme-500) !important; border: none !important; }
+.swal2-actions .swal2-styled.swal2-cancel { background: var(--surface) !important; color: var(--text) !important; border: 1px solid var(--border) !important; }
+.swal2-icon { box-shadow: none !important; }
+.swal2-popup.swal2-toast { background: var(--surface) !important; color: var(--text) !important; border: 1px solid var(--border) !important; }
 
 /* 聊天气泡（主题化） */
 .bubble { position: relative; border-radius: 0.25rem; padding: 0.5rem 0.75rem; max-width: 100%; }
@@ -344,11 +340,7 @@ section[id^="tab-"] { background: var(--surface); color: var(--text); border: 1p
 #fs-editor #fsInput { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 #fs-editor #fsPreview { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
-/* 弹窗卡片使用统一表面色（暗色纯色，日间干净） */
-#modal-root .modal-card { background: var(--surface-modal); color: var(--text); border: 1px solid var(--border); box-shadow: 0 16px 36px rgba(2,6,23,0.45); }
-/* 弹窗内按钮与主题色适配（确保取消按钮不发黑、主按钮清晰） */
-#modal-root .btn { background: var(--surface-modal) !important; color: var(--text) !important; border-color: var(--border) !important; }
-#modal-root .btn-primary { background: var(--theme-500) !important; color: #fff !important; border-color: transparent !important; }
+/* 取消自定义模态样式：改用 SweetAlert2 */
 
 /* 全局统一文字颜色映射，保证不同页面一致；深浅色由变量控制 */
 :root .text-slate-800, :root .text-slate-900 { color: var(--text) !important; }
