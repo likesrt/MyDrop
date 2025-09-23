@@ -35,8 +35,11 @@
   async function api(path, opts = {}) {
     const res = await fetch(path, opts);
     if (res.status === 401) {
-      try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
-      location.href = '/';
+      // 避免在登录页循环重定向
+      if (location.pathname !== '/') {
+        try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
+        location.replace('/');
+      }
       throw new Error('未登录');
     }
     if (!res.ok) {
@@ -391,8 +394,10 @@
       try {
         const res = await fetch('/message', { method: 'POST', body: fd });
         if (res.status === 401) {
-          try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
-          location.href = '/';
+          if (location.pathname !== '/') {
+            try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
+            location.replace('/');
+          }
           return;
         }
         if (!res.ok) {
