@@ -245,6 +245,16 @@ body { background: var(--bg) !important; color: var(--text); }
 #textInput::placeholder { color: var(--muted); }
 #fileBtn { background: var(--surface); border-color: var(--border); color: var(--text); }
 #fileBtn:hover { background: rgba(148,163,184,0.12); }
+#fsEditBtn { background: var(--surface); border-color: var(--border); color: var(--text); }
+#fsEditBtn:hover { background: rgba(148,163,184,0.12); }
+
+/* 表单控件（设置页等） */
+input[type="text"], input[type="password"], input[type="search"], input:not([type]), select, textarea {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+input::placeholder, textarea::placeholder { color: var(--muted); }
 
 /* Toast 简单过渡 */
 .toast-enter { opacity: 0; transform: translateY(8px); }
@@ -307,3 +317,9 @@ body { background: var(--bg) !important; color: var(--text); }
 
 /* 设置页面 Section 遵循主题色 */
 section[id^="tab-"] { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+/* 全屏编辑器（深浅色适配） */
+#fs-editor { background: var(--surface); color: var(--text); }
+#fs-editor header { background: var(--surface); border-color: var(--border); }
+#fs-editor #fsInput { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+#fs-editor #fsPreview { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
