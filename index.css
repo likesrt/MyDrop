@@ -1,8 +1,7 @@
 /* 可选的自定义样式，Tailwind 已经提供大部分样式 */
-/* 聊天列表滚动条略微美化 */
-.scroll-smooth::-webkit-scrollbar { width: 8px; }
-.scroll-smooth::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
-.scroll-smooth::-webkit-scrollbar-track { background: #f1f5f9; }
+/* 隐藏所有滚动条（仍可滚动） */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; background: transparent !important; }
 
 /* iOS 安全区域适配 */
 .pb-safe {

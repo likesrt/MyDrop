@@ -9,6 +9,9 @@
     ws: null,
     config: { maxFiles: 10, fileSizeLimitMB: 5 },
     shownPwdPrompt: false,
+    _dndBound: false,
+    _pasteBound: false,
+    _resizeBound: false,
   };
 
   function uuid() {
@@ -48,6 +51,7 @@
     }
     app.innerHTML = renderChat();
     bindChat();
+    ensureLayoutSpacing();
     scrollToBottom();
   }
 
@@ -120,7 +124,7 @@
             ${state.messages.map((m, i) => renderMessageWithGrouping(i)).join('')}
           </div>
         </div>
-        <form id="composer" class="border-t bg-white p-3 pb-safe sticky bottom-0 left-0 right-0 flex flex-col gap-2">
+        <form id="composer" class="fixed bottom-0 left-0 right-0 z-10 border-t bg-white p-3 pb-safe flex flex-col gap-2">
           <div class="flex gap-2 items-end">
             <textarea id="textInput" rows="1" class="flex-1 border rounded px-3 py-2 resize-none max-h-40 overflow-auto" placeholder="输入消息... (Enter 换行, Ctrl+Enter 发送)"></textarea>
             <label class="shrink-0 inline-flex items-center justify-center w-10 h-10 border rounded cursor-pointer bg-slate-50 hover:bg-slate-100 select-none" title="添加文件" aria-label="添加文件">
@@ -285,6 +289,36 @@
     return (n/1024/1024).toFixed(1) + 'MB';
   }
 
+  // Ensure messages area accounts for fixed composer height
+  function ensureLayoutSpacing() {
+    const msg = qs('#messages');
+    const comp = qs('#composer');
+    if (!msg || !comp) return;
+    const h = comp.offsetHeight || 0;
+    msg.style.paddingBottom = (h + 12) + 'px';
+  }
+
+  // Add files into hidden input (merge existing)
+  function addFilesToInput(newFiles = []) {
+    const fileInput = qs('#fileInput');
+    if (!fileInput) return;
+    const dt = new DataTransfer();
+    const existing = Array.from(fileInput.files || []);
+    const incoming = Array.from(newFiles || []);
+    const sizeLimit = (state.config?.fileSizeLimitMB || 5) * 1024 * 1024;
+    let added = 0; const skipped = [];
+    for (const f of existing) dt.items.add(f);
+    for (const f of incoming) {
+      if (f && typeof f.size === 'number' && f.size > sizeLimit) { skipped.push(f.name || ''); continue; }
+      if (f) { dt.items.add(f); added++; }
+    }
+    fileInput.files = dt.files;
+    fileInput.dispatchEvent(new Event('change'));
+    ensureLayoutSpacing();
+    if (added) toast(`已添加 ${added} 个文件`, 'success');
+    if (skipped.length) toast(`超出大小限制：${skipped.join(', ')}`, 'warn');
+  }
+
   function bindChat() {
     qs('#logoutBtn').addEventListener('click', async () => {
       try { await api('/logout', { method: 'POST' }); location.reload(); } catch (e) { toast(e.message, 'error'); }
@@ -299,6 +333,7 @@
         toast(`部分文件超过大小限制 ${state.config.fileSizeLimitMB}MB：` + over.map(f => f.name).join(', '), 'warn');
       }
       selectedFiles.innerHTML = files.map(f => `${escapeHTML(f.name)} (${formatBytes(f.size)})`).join(', ');
+      ensureLayoutSpacing();
     });
 
     const composer = qs('#composer');
@@ -318,6 +353,7 @@
       const padding = parseFloat(getComputedStyle(textInput).paddingTop) + parseFloat(getComputedStyle(textInput).paddingBottom);
       const max = lineHeight * maxRows + padding;
       textInput.style.height = Math.min(textInput.scrollHeight, max) + 'px';
+      ensureLayoutSpacing();
     };
     ['input','change'].forEach(evt => textInput.addEventListener(evt, syncHeight));
     setTimeout(syncHeight, 0);
@@ -347,6 +383,7 @@
         fileInput.value = '';
         selectedFiles.textContent = '';
         syncHeight();
+        ensureLayoutSpacing();
         setTimeout(scrollToBottom, 50);
       } catch (err) {
         toast(err.message, 'error');
@@ -354,9 +391,9 @@
     });
 
     // 移动端键盘/视口变化时，尽量保持在底部
-    textInput.addEventListener('focus', () => setTimeout(scrollToBottom, 100));
+    textInput.addEventListener('focus', () => setTimeout(() => { ensureLayoutSpacing(); scrollToBottom(); }, 100));
     if (window.visualViewport) {
-      const onVV = () => setTimeout(scrollToBottom, 50);
+      const onVV = () => setTimeout(() => { ensureLayoutSpacing(); scrollToBottom(); }, 50);
       window.visualViewport.addEventListener('resize', onVV);
       window.addEventListener('orientationchange', () => setTimeout(scrollToBottom, 300));
     }
@@ -373,6 +410,39 @@
         toast(e.message, 'error');
       }
     });
+
+    // 拖拽上传到窗口
+    if (!state._dndBound) {
+      state._dndBound = true;
+      const prevent = (e) => { e.preventDefault(); e.stopPropagation(); };
+      ['dragenter','dragover','dragleave','drop'].forEach(evt => document.addEventListener(evt, prevent));
+      document.addEventListener('drop', (e) => {
+        const files = Array.from(e.dataTransfer?.files || []);
+        if (files.length) addFilesToInput(files);
+      });
+    }
+
+    // 粘贴上传（图片/文件）
+    if (!state._pasteBound) {
+      state._pasteBound = true;
+      window.addEventListener('paste', (e) => {
+        const items = Array.from(e.clipboardData?.items || []);
+        const files = [];
+        for (const it of items) {
+          if (it.kind === 'file') {
+            const f = it.getAsFile();
+            if (f) files.push(f);
+          }
+        }
+        if (files.length) addFilesToInput(files);
+      });
+    }
+
+    // 窗口尺寸变化时，更新底部间距
+    if (!state._resizeBound) {
+      state._resizeBound = true;
+      window.addEventListener('resize', () => ensureLayoutSpacing());
+    }
 
     // 全屏编辑器
     qs('#fsEditBtn').addEventListener('click', () => openFullscreenEditor(textInput.value));
@@ -443,6 +513,7 @@
   function scrollToBottom() {
     const el = qs('#messages');
     if (!el) return;
+    ensureLayoutSpacing();
     const fn = () => { el.scrollTop = el.scrollHeight; };
     // double RAF to ensure post-layout
     requestAnimationFrame(() => requestAnimationFrame(fn));
@@ -527,6 +598,7 @@
       await loadInitialMessages();
       render();
       openWS();
+      setTimeout(() => { ensureLayoutSpacing(); scrollToBottom(); }, 50);
     } catch (_) {
       // not logged in yet
       render();
