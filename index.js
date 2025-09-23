@@ -106,16 +106,24 @@
 
   function renderChat() {
     const deviceLabel = (d) => d?.alias || shortId(d?.device_id) || '未命名设备';
+    const deviceCount = (state.devices || []).length;
+    const lastDevice = (state.devices || [])[0];
+    const msgCount = (state.messages || []).length;
+    const lastMsg = (state.messages || [])[msgCount - 1];
+    const lastMsgTime = lastMsg ? new Date(lastMsg.created_at).toLocaleString() : '—';
     return `
-      <header class="border-b bg-white px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-        <div class="font-semibold">MyDrop</div>
+      <header class="border-b bg-white/90 backdrop-blur px-4 py-3 flex items-center justify-between sticky top-0 z-10 anim-fadeInDown" style="animation-delay:.05s">
+        <div class="font-semibold flex items-center gap-2">
+          <svg class="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M3 12h18M3 18h18"/></svg>
+          <span>MyDrop</span>
+        </div>
         <div class="flex items-center gap-3">
           <div class="text-sm text-slate-600">本设备：<span class="font-medium">${deviceLabel(state.me.device)}</span></div>
-          <button id="aliasBtn" class="text-xs px-2 py-1 border rounded hover:bg-slate-50">设备名称</button>
-          <a href="/admin.html" class="inline-flex items-center justify-center w-9 h-9 border rounded hover:bg-slate-50" title="设置" aria-label="设置">
+          <button id="aliasBtn" class="btn pressable text-xs">设备名称</button>
+          <a href="/admin.html" class="inline-flex items-center justify-center w-9 h-9 border rounded hover:bg-slate-50 btn pressable" title="设置" aria-label="设置">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M10.325 4.317a1.5 1.5 0 012.35 0l.334.446a1.5 1.5 0 001.64.555l.528-.142a1.5 1.5 0 011.828 1.06l.142.528a1.5 1.5 0 00.555 1.64l.446.334a1.5 1.5 0 010 2.35l-.446.334a1.5 1.5 0 00-.555 1.64l.142.528a1.5 1.5 0 01-1.06 1.828l-.528.142a1.5 1.5 0 00-1.64.555l-.334.446a1.5 1.5 0 01-2.35 0l-.334-.446a1.5 1.5 0 00-1.64-.555l-.528.142a1.5 1.5 0 01-1.828-1.06l-.142-.528a1.5 1.5 0 00-.555-1.64l-.446-.334a1.5 1.5 0 010-2.35l.446-.334a1.5 1.5 0 00.555-1.64l-.142-.528A1.5 1.5 0 017.795 5.176l.528.142a1.5 1.5 0 001.64-.555l.334-.446z"/><circle cx="12" cy="12" r="3"/></svg>
           </a>
-          <button id="logoutBtn" class="text-sm text-slate-700 hover:text-black">退出</button>
+          <button id="logoutBtn" class="text-sm link">退出</button>
         </div>
       </header>
       <main class="flex-1 flex flex-col min-h-0">
@@ -124,7 +132,7 @@
             ${state.messages.map((m, i) => renderMessageWithGrouping(i)).join('')}
           </div>
         </div>
-        <form id="composer" class="fixed bottom-0 left-0 right-0 z-10 border-t bg-white p-3 pb-safe flex flex-col gap-2">
+        <form id="composer" class="fixed bottom-0 left-0 right-0 z-10 border-t bg-white/95 backdrop-blur p-3 pb-safe flex flex-col gap-2">
           <div class="flex gap-2 items-end">
             <textarea id="textInput" rows="1" class="flex-1 border rounded px-3 py-2 resize-none max-h-40 overflow-auto" placeholder="输入消息... (Enter 换行, Ctrl+Enter 发送)"></textarea>
             <label class="shrink-0 inline-flex items-center justify-center w-10 h-10 border rounded cursor-pointer bg-slate-50 hover:bg-slate-100 select-none" title="添加文件" aria-label="添加文件">
@@ -134,7 +142,7 @@
             <button type="button" id="fsEditBtn" class="shrink-0 inline-flex items-center justify-center w-10 h-10 border rounded hover:bg-slate-50" title="全屏编辑" aria-label="全屏编辑">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
             </button>
-            <button class="shrink-0 bg-slate-900 text-white rounded px-4 py-2 hover:bg-slate-800">发送</button>
+            <button class="btn btn-primary pressable shrink-0 px-4">发送</button>
           </div>
           <div id="selectedFiles" class="text-xs text-slate-600"></div>
           <div class="text-xs text-slate-500">单个文件上限：${state.config.fileSizeLimitMB}MB；全局最多 ${state.config.maxFiles} 个文件</div>
