@@ -13,6 +13,13 @@
     <script src="/static/vendor/sweetalert2.all.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <link rel="stylesheet" href="/index.css" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function(){});
+        });
+      }
+    </script>
   </head>
   <body class="bg-slate-100 min-h-[100dvh]">
     <div class="bg-decor" aria-hidden="true"></div>
