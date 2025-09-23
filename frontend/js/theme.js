@@ -29,17 +29,17 @@
   }
 
   function iconSVG(mode) {
+    const cls = 'w-6 h-6 flex-shrink-0';
+    const common = `class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"`;
     if (mode === 'dark') {
-      return '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
+      // Moon (outline)
+      return `<svg ${common}><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>`;
     } else if (mode === 'light') {
-      return '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zM1 13h3v-2H1v2zm10 10h2v-3h-2v3zM4.96 19.36l1.41 1.41 1.8-1.79-1.42-1.42-1.79 1.8zM20 13h3v-2h-3v2zm-1.95 7.78l1.41-1.41-1.79-1.8-1.41 1.42 1.79 1.79zM13 1h-2v3h2V1zm4.24 3.05l-1.42 1.42 1.8 1.79 1.41-1.41-1.79-1.8zM12 6a6 6 0 100 12A6 6 0 0012 6z"/></svg>';
+      // Sun (outline)
+      return `<svg ${common}><path d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M3 12h2M19 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/><circle cx="12" cy="12" r="4"/></svg>`;
     } else {
-      // auto: show A + current system icon cue
-      const sysDark = systemIsDark();
-      const cue = sysDark
-        ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" style="opacity:.7;margin-left:2px"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
-        : '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" style="opacity:.7;margin-left:2px"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zM1 13h3v-2H1v2zm10 10h2v-3h-2v3zM4.96 19.36l1.41 1.41 1.8-1.79-1.42-1.42-1.79 1.8zM20 13h3v-2h-3v2zm-1.95 7.78l1.41-1.41-1.79-1.8-1.41 1.42 1.79 1.79zM13 1h-2v3h2V1zm4.24 3.05l-1.42 1.42 1.8 1.79 1.41-1.41-1.79-1.8zM12 6a6 6 0 100 12A6 6 0 0012 6z"/></svg>';
-      return '<span style="font-weight:600">A</span>' + cue;
+      // Auto: half sun + half moon combined
+      return `<svg ${common}><path d="M12 3a9 9 0 100 18 9 9 0 010-18z" opacity="0"/><path d="M12 3a9 9 0 100 18"/><path d="M12 8a4 4 0 104 4" opacity="0.5"/><path d="M12 2v3M12 19v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>`;
     }
   }
 
@@ -72,4 +72,3 @@
   // auto-init
   try { init(); } catch (_) {}
 })();
-
