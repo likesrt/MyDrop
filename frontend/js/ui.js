@@ -218,10 +218,14 @@ function setupAutoHideHeader(enabled) {
     document.body.appendChild(reveal);
 
     let hideTimer = null;
+    let guardTimer = null;
+    const guardMs = 280; // 首次点击仅用于唤起，延迟后再允许点击 header
     const showHeader = () => {
       header.classList.remove('hidden');
-      // 显示时避免触发区遮挡按钮
-      try { reveal.style.pointerEvents = 'none'; } catch(_) {}
+      // 首次唤起后短暂保留触发区接管点击，防止同一次点击命中 header 按钮
+      try { reveal.style.pointerEvents = 'auto'; } catch(_) {}
+      if (guardTimer) { clearTimeout(guardTimer); guardTimer = null; }
+      guardTimer = setTimeout(() => { try { reveal.style.pointerEvents = 'none'; } catch(_) {} }, guardMs);
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       hideTimer = setTimeout(() => {
         header.classList.add('hidden');
@@ -244,8 +248,12 @@ function setupAutoHideHeader(enabled) {
 
     // 交互：鼠标移入/点击顶部触发；移出后延时隐藏
     reveal.addEventListener('mouseenter', showHeader);
-    reveal.addEventListener('click', showHeader);
-    reveal.addEventListener('touchstart', showHeader, { passive: true });
+    const onReveal = (ev) => {
+      try { ev.preventDefault(); ev.stopPropagation(); if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); } catch(_) {}
+      showHeader();
+    };
+    reveal.addEventListener('click', onReveal, true);
+    reveal.addEventListener('touchstart', onReveal, { passive: false, capture: true });
     header.addEventListener('mouseenter', keepOpen);
     header.addEventListener('mouseleave', scheduleHide);
     header.addEventListener('touchstart', keepOpen, { passive: true });
