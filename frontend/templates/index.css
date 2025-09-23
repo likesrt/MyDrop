@@ -50,9 +50,10 @@
     --link: #38bdf8;
 
     /* 更柔和的“我方气泡”配色，避免过饱和发绿 */
-    --bubble-mine-bg: #0f1f1a;          /* 深色中性偏绿底 */
+    /* 我方气泡：更中性的深色，减少绿色偏色 */
+    --bubble-mine-bg: #1e293b;          /* slate-800 */
     --bubble-other-bg: #0f172a;         /* 深色表面 */
-    --bubble-mine-border: rgba(16,185,129,0.28);
+    --bubble-mine-border: #334155;      /* slate-700 */
     --bubble-other-border: #243147;
 
     --code-bg: #0b1220;
@@ -323,3 +324,15 @@ section[id^="tab-"] { background: var(--surface); color: var(--text); border: 1p
 #fs-editor header { background: var(--surface); border-color: var(--border); }
 #fs-editor #fsInput { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 #fs-editor #fsPreview { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+/* Tailwind 文本灰度在暗色下的可读性修复 */
+@media (prefers-color-scheme: dark) {
+  :root .text-slate-800, :root .text-slate-900 { color: var(--text) !important; }
+  :root .text-slate-700, :root .text-slate-600, :root .text-slate-500, :root .text-slate-400 { color: var(--muted) !important; }
+}
+:root[data-theme='dark'] .text-slate-800,
+:root[data-theme='dark'] .text-slate-900 { color: var(--text) !important; }
+:root[data-theme='dark'] .text-slate-700,
+:root[data-theme='dark'] .text-slate-600,
+:root[data-theme='dark'] .text-slate-500,
+:root[data-theme='dark'] .text-slate-400 { color: var(--muted) !important; }
