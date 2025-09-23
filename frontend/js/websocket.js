@@ -70,9 +70,18 @@ function openWS() {
     try { ws.close(); } catch (_) {}
   });
 
-  ws.addEventListener('close', () => {
+  ws.addEventListener('close', (ev) => {
     clearTimers();
-    scheduleReconnect();
+    window.MyDropState.ws = null;
+    const code = (ev && typeof ev.code === 'number') ? ev.code : 0;
+    // Stop reconnect for auth/device issues
+    if (code === 4001 || code === 4002 || code === 4003 || code === 1008) {
+      st.stop = true;
+      try { window.MyDropUI.toast('会话已失效，请重新登录', 'warn', { key: 'ws-expired' }); } catch (_) {}
+      try { fetch('/logout', { method: 'POST' }).finally(() => { location.replace('/'); }); } catch (_) { location.replace('/'); }
+      return;
+    }
+    if (!st.stop) scheduleReconnect();
   });
 }
 

@@ -142,7 +142,7 @@ wss.on('connection', async (ws, req) => {
   try { if (token) claims = verifyJWT(token, JWT_SECRET); } catch (_) {}
   if (!claims) {
     logger.warn('ws.reject', { reason: 'no-token' });
-    ws.close();
+    try { ws.close(4001, 'unauthorized'); } catch (_) { try { ws.close(); } catch(_) {} }
     return;
   }
   // ensure device still exists
@@ -151,13 +151,13 @@ wss.on('connection', async (ws, req) => {
     const user = await db.getUserById(claims.sub);
     if (!user || typeof claims.tv !== 'number' || claims.tv !== (user.token_version || 0)) {
       logger.warn('ws.reject', { reason: 'invalid-token-version', user_id: claims.sub });
-      ws.close();
+      try { ws.close(4003, 'invalid-token'); } catch (_) { try { ws.close(); } catch(_) {} }
       return;
     }
     const device = await db.getDevice(claims.device_id);
     if (!device) {
       logger.warn('ws.reject', { reason: 'device-revoked', device_id: claims.device_id });
-      ws.close();
+      try { ws.close(4002, 'device-revoked'); } catch (_) { try { ws.close(); } catch(_) {} }
       return;
     }
   } catch (_) { ws.close(); return; }
