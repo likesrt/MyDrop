@@ -37,8 +37,8 @@ async function loadBasics() {
   }
 }
 
-async function loadInitialMessages() {
-  const result = await api('/messages?limit=100');
+async function loadInitialMessages(limit = 100) {
+  const result = await api(`/messages?limit=${encodeURIComponent(limit)}`);
   window.MyDropState.messages = result.messages || [];
 }
 

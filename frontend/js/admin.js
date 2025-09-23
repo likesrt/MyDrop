@@ -315,7 +315,7 @@
           const files = (m.files||[]).map(f => `<div class=\"text-xs text-slate-600 flex items-center gap-2\">📎 ${f.original_name} <button class=\"btn pressable\" data-action=\"file-del\" data-id=\"${f.id}\">删除文件</button></div>`).join('');
           const preview = (m.text || '').slice(0, 80).replace(/</g,'&lt;').replace(/>/g,'&gt;');
           return `
-            <div class=\"card p-3\" id=\"message-${m.id}\" data-mid=\"${m.id}\">
+            <div class=\"card p-3 cursor-pointer\" id=\"message-${m.id}\" data-mid=\"${m.id}\" title=\"点击跳转至聊天\"> 
               <div class=\"flex items-start justify-between gap-3\">
                 <div class=\"min-w-0\">
                   <div class=\"font-medium text-slate-800\">消息 #${m.id} · ${time} · 设备：${sLabel}</div>
@@ -356,6 +356,16 @@
             renderList();
           } catch (e) { toast(formatError(e, '删除文件失败'), 'error'); }
         }));
+
+        // 点击消息卡片跳转到聊天页对应锚点
+        root.querySelectorAll('.card[data-mid]').forEach(card => {
+          card.addEventListener('click', (ev) => {
+            const isBtn = ev.target.closest('button');
+            if (isBtn) return;
+            const mid = card.getAttribute('data-mid');
+            if (mid) { location.href = '/#message-' + mid; }
+          });
+        });
       };
 
       if (searchBox) {
