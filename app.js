@@ -117,6 +117,15 @@ wss.on('connection', async (ws, req) => {
     ws.close();
     return;
   }
+  // ensure device still exists
+  try {
+    const device = await db.getDevice(claims.device_id);
+    if (!device) {
+      logger.warn('ws.reject', { reason: 'device-revoked', device_id: claims.device_id });
+      ws.close();
+      return;
+    }
+  } catch (_) { ws.close(); return; }
 
   clients.set(token, { ws, deviceId: claims.device_id });
   logger.info('ws.connect', { device_id: claims.device_id });

@@ -39,6 +39,13 @@ function createApiRouter(options) {
       const claims = verifyJWT(token, jwtSecret);
       req.user = { id: claims.sub, username: claims.username };
       req.device_id = claims.device_id;
+      // ensure device still exists (revoked device should not access)
+      const device = await db.getDevice(req.device_id);
+      if (!device) {
+        try { res.clearCookie(tokenCookieName); } catch (_) {}
+        return res.status(401).json({ error: 'Device revoked' });
+      }
+      req.device = device;
       next();
     } catch (e) {
       return res.status(401).json({ error: 'Invalid token' });
