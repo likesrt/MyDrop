@@ -61,6 +61,43 @@
   }
 }
 
+/* 手动覆盖：当设置 data-theme="light"/"dark" 时，强制使用对应主题变量（优先级高于系统） */
+:root[data-theme='light'] {
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --surface-translucent: rgba(255,255,255,0.95);
+  --text: #0f172a;
+  --muted: #475569;
+  --border: #e2e8f0;
+  --link: #0ea5e9;
+  --bubble-mine-bg: #f0fdf4;
+  --bubble-other-bg: #f8fafc;
+  --bubble-mine-border: rgba(16,185,129,0.25);
+  --bubble-other-border: #e2e8f0;
+  --code-bg: #f1f5f9;
+  --code-fg: #0f172a;
+  --pre-bg: #f1f5f9;
+  --pre-fg: #0f172a;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0b1220;
+  --surface: #0f172a;
+  --surface-translucent: rgba(15,23,42,0.9);
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+  --border: #243147;
+  --link: #38bdf8;
+  --bubble-mine-bg: #0f2a1f;
+  --bubble-other-bg: #0f172a;
+  --bubble-mine-border: rgba(16,185,129,0.35);
+  --bubble-other-border: #243147;
+  --code-bg: #0b1220;
+  --code-fg: #e5e7eb;
+  --pre-bg: #0b1220;
+  --pre-fg: #f1f5f9;
+}
+
 /* Composer 控件高度（媒体查询分别设置） */
 @media (max-width: 640px) {
   :root { --composer-h: 40px; }

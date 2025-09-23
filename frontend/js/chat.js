@@ -102,6 +102,20 @@ function bindChat() {
     try { await window.MyDropAPI.api('/logout', { method: 'POST' }); location.reload(); } catch (e) { window.MyDropUI.toast(window.MyDropUI.formatError(e, '退出登录失败'), 'error'); }
   });
 
+  // 主题切换
+  const themeBtn = window.MyDropUtils.qs('#themeToggleBtn');
+  if (themeBtn && window.MyDropTheme) {
+    // 确保按钮图标与当前模式一致
+    try { window.MyDropTheme.apply(window.MyDropTheme.get()); } catch (_) {}
+    themeBtn.addEventListener('click', () => {
+      try {
+        const curr = window.MyDropTheme.get();
+        const next = window.MyDropTheme.next(curr);
+        window.MyDropTheme.set(next);
+      } catch (_) {}
+    });
+  }
+
   const fileInput = window.MyDropUtils.qs('#fileInput');
   const selectedFiles = window.MyDropUtils.qs('#selectedFiles');
   fileInput.addEventListener('change', () => {
