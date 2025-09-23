@@ -750,13 +750,17 @@
       root.innerHTML = '';
       root.appendChild(overlay);
       root.appendChild(card);
-      const onCancel = () => { closeModal(root, overlay); resolve(false); };
-      const onOk = () => { closeModal(root, overlay); resolve(true); };
+      // Prevent accidental auto-close due to previous click/keypress
+      let armed = false; setTimeout(() => { armed = true; }, 180);
+      const detach = () => document.removeEventListener('keydown', onKey);
+      const onCancel = () => { detach(); closeModal(root, overlay); resolve(false); };
+      const onOk = () => { detach(); closeModal(root, overlay); resolve(true); };
+      card.addEventListener('click', (e) => e.stopPropagation());
       card.querySelector('[data-act="cancel"]').addEventListener('click', onCancel);
       card.querySelector('[data-act="ok"]').addEventListener('click', onOk);
-      const onKey = (e) => { if (e.key === 'Escape') onCancel(); if (e.key === 'Enter') onOk(); };
-      setTimeout(() => document.addEventListener('keydown', onKey, { once: true }), 0);
-      overlay.addEventListener('click', onCancel);
+      const onKey = (e) => { if (!armed) return; if (e.key === 'Escape') onCancel(); if (e.key === 'Enter') onOk(); };
+      setTimeout(() => document.addEventListener('keydown', onKey), 0);
+      overlay.addEventListener('click', () => { if (!armed) return; onCancel(); });
     });
   }
   function showPrompt(message, defaultValue = '') {
@@ -777,13 +781,16 @@
       root.appendChild(overlay);
       root.appendChild(card);
       const input = card.querySelector('#_promptInput');
-      const onCancel = () => { closeModal(root, overlay); resolve(null); };
-      const onOk = () => { const v = input.value; closeModal(root, overlay); resolve(v); };
+      let armed = false; setTimeout(() => { armed = true; }, 180);
+      const detach = () => document.removeEventListener('keydown', onKey);
+      const onCancel = () => { detach(); closeModal(root, overlay); resolve(null); };
+      const onOk = () => { const v = input.value; detach(); closeModal(root, overlay); resolve(v); };
+      card.addEventListener('click', (e) => e.stopPropagation());
       card.querySelector('[data-act="cancel"]').addEventListener('click', onCancel);
       card.querySelector('[data-act="ok"]').addEventListener('click', onOk);
-      const onKey = (e) => { if (e.key === 'Escape') onCancel(); if (e.key === 'Enter') onOk(); };
-      setTimeout(() => { input.focus(); input.select(); document.addEventListener('keydown', onKey, { once: true }); }, 0);
-      overlay.addEventListener('click', onCancel);
+      const onKey = (e) => { if (!armed) return; if (e.key === 'Escape') onCancel(); if (e.key === 'Enter') onOk(); };
+      setTimeout(() => { input.focus(); input.select(); document.addEventListener('keydown', onKey); }, 0);
+      overlay.addEventListener('click', () => { if (!armed) return; onCancel(); });
     });
   }
 
