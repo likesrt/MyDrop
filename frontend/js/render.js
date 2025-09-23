@@ -112,6 +112,7 @@ function renderMessage(m, opts = {}) {
   const isMine = window.MyDropState.me?.device?.device_id && m.sender_device_id === window.MyDropState.me.device.device_id;
   const row = isMine ? 'justify-end' : 'justify-start';
   const align = isMine ? 'items-end text-left' : 'items-start text-left';
+  const sidePad = isMine ? 'pr-3 sm:pr-0' : 'pl-3 sm:pl-0';
   let bubbleCls = isMine ? 'bubble bubble-mine bubble-shadow' : 'bubble bubble-other bubble-shadow ring-1 ring-slate-200';
   if (opts.tail) bubbleCls += isMine ? ' bubble-tail-right' : ' bubble-tail-left';
   const name = m.sender?.alias || (m.sender_device_id ? window.MyDropUtils.shortId(m.sender_device_id) : null) || '已删除设备';
@@ -120,7 +121,7 @@ function renderMessage(m, opts = {}) {
   const fileBlocks = renderFilePreviews(m.files || []);
   return `
     <div class="w-full flex ${row}" id="message-${m.id}">
-      <div class="max-w-[92%] sm:max-w-[80%] min-w-0 flex flex-col ${align}">
+      <div class="max-w-[88%] sm:max-w-[80%] min-w-0 flex flex-col ${align} ${sidePad}">
         <div class="${bubbleCls} text-sm leading-relaxed ${opts.tight ? 'mt-0.5' : ''} overflow-hidden break-words">
           ${textHTML}
           ${fileBlocks}

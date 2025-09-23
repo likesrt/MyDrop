@@ -85,7 +85,7 @@ function highlightAnchorIfAny() {
     if (!el) return false;
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     el.classList.add('msg-highlight');
-    setTimeout(() => { try { el.classList.remove('msg-highlight'); } catch (_) {} }, 1800);
+    setTimeout(() => { try { el.classList.remove('msg-highlight'); } catch (_) {} }, 2600);
     return true;
   } catch (_) { return false; }
 }

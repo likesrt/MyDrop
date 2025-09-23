@@ -117,9 +117,9 @@ html, body {
 .bubble-other { background: var(--neutral-50); color: #0f172a; border: 1px solid var(--neutral-200); }
 .bubble-shadow { box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12); }
 .bubble-tail-right::after,
-.bubble-tail-left::after { content: ""; position: absolute; width: 10px; height: 10px; background: inherit; transform: rotate(45deg); border-radius: 2px; }
-.bubble-tail-right::after { right: -3px; bottom: 10px; }
-.bubble-tail-left::after { left: -3px; bottom: 10px; }
+.bubble-tail-left::after { content: ""; position: absolute; width: 12px; height: 12px; background: inherit; transform: rotate(45deg); border-radius: 3px; }
+.bubble-tail-right::after { right: -4px; bottom: 12px; }
+.bubble-tail-left::after { left: -4px; bottom: 12px; }
 .bubble a { text-decoration: underline; word-break: break-word; }
 .bubble img, .bubble video { border-radius: 0.25rem; }
 
@@ -149,11 +149,13 @@ html, body {
 .md-body a { color: var(--theme-600); }
 
 /* 锚点消息高亮效果 */
-@keyframes msgGlow {
-  0% { box-shadow: 0 0 0 8px rgba(59,130,246,0.25), 0 2px 6px rgba(15, 23, 42, 0.12); }
-  100% { box-shadow: 0 0 0 0 rgba(59,130,246,0), 0 2px 6px rgba(15, 23, 42, 0.12); }
+@keyframes msgPulse {
+  0% { box-shadow: 0 0 0 10px rgba(37,99,235,0.35), 0 6px 16px rgba(37,99,235,0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(37,99,235,0.2), 0 2px 10px rgba(37,99,235,0.2); }
+  100% { box-shadow: 0 0 0 0 rgba(37,99,235,0), 0 2px 6px rgba(15,23,42,0.12); }
 }
 .msg-highlight .bubble {
-  border-color: rgba(59,130,246,0.55) !important;
-  animation: msgGlow 1.6s ease-out 1;
+  border-color: rgba(37,99,235,0.7) !important;
+  background-image: linear-gradient(180deg, rgba(59,130,246,0.08), rgba(59,130,246,0));
+  animation: msgPulse 1.3s ease-out 2;
 }
