@@ -131,6 +131,7 @@ function bindChat() {
   });
 
   const composer = window.MyDropUtils.qs('#composer');
+  const sendBtn = window.MyDropUtils.qs('#sendBtn');
   const msgContainer = window.MyDropUtils.qs('#messages');
   if (msgContainer) {
     const updateStick = () => { try { window.MyDropState.stickToBottom = window.MyDropUtils.isNearBottom(msgContainer, 80); } catch (_) {} };
@@ -161,8 +162,18 @@ function bindChat() {
   ['input','change'].forEach(evt => textInput.addEventListener(evt, syncHeight));
   setTimeout(syncHeight, 0);
 
+  // 防止点击发送按钮导致输入框失焦（移动端会收起键盘）
+  if (sendBtn) {
+    // 阻止鼠标按下将焦点切到按钮（不影响后续 click 与 submit）
+    sendBtn.addEventListener('mousedown', (ev) => { try { ev.preventDefault(); } catch(_) {} });
+    // 触屏场景尽量保持焦点在文本框
+    sendBtn.addEventListener('touchstart', () => { try { textInput.focus({ preventScroll: true }); } catch(_) {} }, { passive: true });
+  }
+
   composer.addEventListener('submit', async (e) => {
     e.preventDefault();
+    // 提交瞬间立即把焦点锁回输入框，避免移动端键盘先收起再弹出
+    try { textInput.focus({ preventScroll: true }); } catch (_) {}
     const text = textInput.value.trim();
     const files = Array.from(fileInput.files || []);
     if (!text && files.length === 0) return;
@@ -252,12 +263,11 @@ function bindChat() {
       selectedFiles.textContent = '';
       syncHeight();
 
-      setTimeout(() => {
-        try {
-          textInput.focus();
-          textInput.setSelectionRange(textInput.value.length, textInput.value.length);
-        } catch (_) {}
-      }, 50);
+      // 维持焦点与光标位置
+      try {
+        textInput.focus({ preventScroll: true });
+        textInput.setSelectionRange(textInput.value.length, textInput.value.length);
+      } catch (_) {}
     } catch (err) {
       // remove optimistic
       const idx = window.MyDropState.messages.findIndex(m => m.id === tempId);
