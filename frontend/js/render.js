@@ -122,7 +122,7 @@ function renderMessage(m, opts = {}) {
   const fileBlocks = renderFilePreviews(m.files || []);
   return `
     <div class="w-full flex ${row}" id="message-${m.id}">
-      <div class="max-w-[88%] sm:max-w-[80%] min-w-0 flex flex-col ${align} ${sidePad}">
+      <div class="bubble-wrap min-w-0 flex flex-col ${align} ${sidePad}">
         <div class="${bubbleCls} text-sm leading-relaxed ${opts.tight ? 'mt-0.5' : ''} break-words">
           ${textHTML}
           ${fileBlocks}

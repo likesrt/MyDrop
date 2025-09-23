@@ -194,3 +194,9 @@ html, body {
   background-image: linear-gradient(180deg, rgba(59,130,246,0.08), rgba(59,130,246,0));
   animation: msgPulse 1.3s ease-out 2;
 }
+
+/* 气泡外层包装宽度（无需重建 Tailwind，可随时调整） */
+.bubble-wrap { max-width: 92%; }
+@media (min-width: 640px) {
+  .bubble-wrap { max-width: 85%; }
+}
