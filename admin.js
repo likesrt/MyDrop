@@ -90,6 +90,7 @@
     qsa('[data-tab]').forEach(b => {
       if (b.getAttribute('data-tab') === name) b.classList.add('btn-primary'); else b.classList.remove('btn-primary');
     });
+    if (name === 'devices') renderDevices();
   }
 
   async function renderDashboard() {
@@ -151,6 +152,47 @@
       qs('#dashboardCards').innerHTML = html;
     } catch (e) {
       // ignore dashboard if API fails
+    }
+  }
+
+  async function renderDevices() {
+    try {
+      const data = await api('/devices');
+      const list = data.devices || [];
+      const root = qs('#deviceList');
+      root.innerHTML = list.map(d => {
+        const short = (s) => (s ? (String(s).slice(0,4)+'…'+String(s).slice(-4)) : '');
+        const last = new Date(d.last_seen_at).toLocaleString();
+        return `
+          <div class="py-3 flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="font-medium text-slate-800">${(d.alias || short(d.device_id) || '未命名设备')}</div>
+              <div class="text-xs text-slate-500">ID：${d.device_id}</div>
+              <div class="text-xs text-slate-500">最近活跃：${last}</div>
+              <div class="text-xs text-slate-500 truncate">UA：${(d.user_agent || '')}</div>
+            </div>
+            <div class="shrink-0 flex items-center gap-2">
+              <button class="btn pressable" data-action="delete" data-id="${d.device_id}">删除</button>
+            </div>
+          </div>`;
+      }).join('');
+
+      root.querySelectorAll('[data-action="delete"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const deviceId = btn.getAttribute('data-id');
+          if (!confirm('确认删除该设备？')) return;
+          const also = confirm('是否同时删除该设备相关消息与文件？“确定”删除，“取消”保留');
+          try {
+            await api('/admin/device/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId, removeMessages: also }) });
+            toast('已删除设备' + (also ? '并清理消息' : ''), 'success');
+            renderDevices();
+          } catch (e) {
+            toast(e.message, 'error');
+          }
+        });
+      });
+    } catch (e) {
+      // ignore
     }
   }
 

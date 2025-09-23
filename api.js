@@ -15,6 +15,7 @@ function createApiRouter(options) {
     broadcast, // function(message)
     jwtSecret,
     jwtExpiresDays,
+    kickDevice, // function(deviceId)
   } = options;
 
   const router = express.Router();
@@ -208,6 +209,68 @@ function createApiRouter(options) {
     } catch (err) {
       logger.error('admin.user.error', { err });
       res.status(500).json({ error: '更新用户失败' });
+    }
+  });
+
+  // Admin: delete a device, optionally also delete its messages/files
+  router.post('/admin/device/delete', requireAuth, async (req, res) => {
+    try {
+      const { deviceId, removeMessages } = req.body || {};
+      if (!deviceId) return res.status(400).json({ error: '缺少设备ID' });
+      if (removeMessages) {
+        const files = await db.listFilesByDevice(deviceId);
+        for (const f of files) {
+          const p = path.join(uploadDir, f.stored_name);
+          try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch (_) {}
+        }
+        const msgs = await db.listMessagesByDevice(deviceId);
+        for (const m of msgs) { await db.deleteMessage(m.id); }
+      }
+      await db.deleteDevice(deviceId);
+      try { if (typeof kickDevice === 'function') kickDevice(deviceId); } catch (_) {}
+      logger.info('admin.device.delete', { device_id: deviceId, remove_messages: !!removeMessages });
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error('admin.device.delete.error', { err });
+      res.status(500).json({ error: '删除设备失败' });
+    }
+  });
+
+  // Admin: delete a message (and its files by FK). Also unlink files.
+  router.post('/admin/message/delete', requireAuth, async (req, res) => {
+    try {
+      const { messageId } = req.body || {};
+      if (!messageId) return res.status(400).json({ error: '缺少消息ID' });
+      const full = await db.getMessage(messageId);
+      for (const f of (full?.files || [])) {
+        const p = path.join(uploadDir, f.stored_name);
+        try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch (_) {}
+      }
+      await db.deleteMessage(messageId);
+      logger.info('admin.message.delete', { message_id: messageId });
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error('admin.message.delete.error', { err });
+      res.status(500).json({ error: '删除消息失败' });
+    }
+  });
+
+  // Admin: delete a single file
+  router.post('/admin/file/delete', requireAuth, async (req, res) => {
+    try {
+      const { fileId } = req.body || {};
+      if (!fileId) return res.status(400).json({ error: '缺少文件ID' });
+      const file = await db.getFile(fileId);
+      if (file) {
+        const p = path.join(uploadDir, file.stored_name);
+        try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch (_) {}
+        await db.deleteFile(fileId);
+      }
+      logger.info('admin.file.delete', { file_id: fileId });
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error('admin.file.delete.error', { err });
+      res.status(500).json({ error: '删除文件失败' });
     }
   });
 

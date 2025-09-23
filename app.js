@@ -65,6 +65,18 @@ app.get('/admin.js', (req, res) => {
 });
 
 // Mount API router (all HTTP endpoints live in api.js)
+function kickDeviceById(deviceId) {
+  try {
+    for (const [token, obj] of clients.entries()) {
+      if (obj?.deviceId === deviceId && obj.ws && obj.ws.readyState === WebSocket.OPEN) {
+        try { obj.ws.send(JSON.stringify({ type: 'force-logout', reason: 'admin_kick' })); } catch (_) {}
+        try { obj.ws.close(); } catch (_) {}
+        clients.delete(token);
+      }
+    }
+  } catch (_) {}
+}
+
 const apiRouter = createApiRouter({
   tokenCookieName: TOKEN_COOKIE,
   db,
@@ -73,6 +85,7 @@ const apiRouter = createApiRouter({
   broadcast: (message) => broadcastMessage(message),
   jwtSecret: JWT_SECRET,
   jwtExpiresDays: JWT_EXPIRES_DAYS,
+  kickDevice: kickDeviceById,
 });
 app.use(apiRouter);
 

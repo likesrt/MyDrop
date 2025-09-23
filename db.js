@@ -116,6 +116,10 @@ async function listDevices() {
   return all('SELECT * FROM devices ORDER BY last_seen_at DESC');
 }
 
+async function deleteDevice(deviceId) {
+  await run('DELETE FROM devices WHERE device_id = ?', [deviceId]);
+}
+
 async function createSession(id, deviceId) {
   const now = Date.now();
   await run('INSERT INTO sessions (id, device_id, created_at, last_seen_at) VALUES (?, ?, ?, ?)', [id, deviceId, now, now]);
@@ -163,6 +167,21 @@ async function listMessages(sinceId = null, limit = 100) {
   return result;
 }
 
+async function listMessagesByDevice(deviceId) {
+  return all('SELECT * FROM messages WHERE sender_device_id = ? ORDER BY id ASC', [deviceId]);
+}
+
+async function listFilesByDevice(deviceId) {
+  return all(
+    'SELECT f.* FROM files f JOIN messages m ON f.message_id = m.id WHERE m.sender_device_id = ? ORDER BY f.id ASC',
+    [deviceId]
+  );
+}
+
+async function deleteMessage(id) {
+  await run('DELETE FROM messages WHERE id = ?', [id]);
+}
+
 async function addFile({ messageId, storedName, originalName, mimeType, size }) {
   const now = Date.now();
   await run(
@@ -173,6 +192,10 @@ async function addFile({ messageId, storedName, originalName, mimeType, size }) 
 
 async function getFile(id) {
   return get('SELECT * FROM files WHERE id = ?', [id]);
+}
+
+async function deleteFile(id) {
+  await run('DELETE FROM files WHERE id = ?', [id]);
 }
 
 async function countFiles() {
@@ -206,14 +229,19 @@ module.exports = {
   upsertDevice,
   getDevice,
   listDevices,
+  deleteDevice,
   createSession,
   getSession,
   deleteSession,
   createMessage,
   getMessage,
   listMessages,
+  listMessagesByDevice,
+  deleteMessage,
   addFile,
   getFile,
+  listFilesByDevice,
+  deleteFile,
   countFiles,
   getUserByUsername,
   getUserById,
