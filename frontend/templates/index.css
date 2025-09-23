@@ -17,6 +17,14 @@
   --neutral-700: #334155;
 }
 
+/* Composer 控件高度（媒体查询分别设置） */
+@media (max-width: 640px) {
+  :root { --composer-h: 40px; }
+}
+@media (min-width: 641px) {
+  :root { --composer-h: 44px; }
+}
+
 /* 背景装饰：低透明度渐变球 + 轻网格 */
 .bg-decor {
   position: fixed; inset: 0; pointer-events: none; z-index: 0;
@@ -103,6 +111,10 @@ input, button {
 @media (min-width: 641px) {
   #textInput::placeholder { font-size: 13px; }
 }
+
+/* 当没有输入内容时，输入框高度与发送按钮统一 */
+#textInput:placeholder-shown { min-height: var(--composer-h); }
+#sendBtn { height: var(--composer-h); }
 
 /* 滚动优化，避免页面级别回弹影响 */
 html, body {
