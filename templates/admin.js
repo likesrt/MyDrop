@@ -44,11 +44,12 @@
       el.className = 'fixed inset-0 z-50 flex items-center justify-center p-3';
       document.body.appendChild(el);
     }
+    try { el.style.pointerEvents = 'auto'; el.style.display = ''; } catch (_) {}
     return el;
   }
   function closeModal(root, overlay) {
-    try { overlay.classList.add('opacity-0'); } catch (_) {}
-    setTimeout(() => { try { root.innerHTML = ''; } catch (_) {} }, 150);
+    try { if (overlay) overlay.classList.add('opacity-0'); } catch (_) {}
+    setTimeout(() => { try { root.remove(); } catch (_) {} }, 120);
   }
   function showConfirm(message, { title = '确认', confirmText = '确定', cancelText = '取消' } = {}) {
     return new Promise((resolve) => {
