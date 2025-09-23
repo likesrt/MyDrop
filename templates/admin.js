@@ -68,6 +68,8 @@
       root.innerHTML = '';
       root.appendChild(overlay);
       root.appendChild(card);
+      const now = (window.performance && performance.now) ? performance.now() : Date.now();
+      const acceptAfter = now + 240;
       let armed = false; setTimeout(() => { armed = true; }, 180);
       const detach = () => document.removeEventListener('keydown', onKey);
       const onCancel = () => { detach(); closeModal(root, overlay); resolve(false); };
@@ -75,9 +77,15 @@
       card.addEventListener('click', (e) => e.stopPropagation());
       card.querySelector('[data-act="cancel"]').addEventListener('click', onCancel);
       card.querySelector('[data-act="ok"]').addEventListener('click', onOk);
-      const onKey = (e) => { if (!armed) return; if (e.key === 'Escape') onCancel(); if (e.key === 'Enter') onOk(); };
+      const onKey = (e) => {
+        const t = (window.performance && performance.now) ? performance.now() : Date.now();
+        if (!armed || t < acceptAfter) return;
+        if (e.repeat) return;
+        if (e.key === 'Escape') onCancel();
+        if (e.key === 'Enter') onOk();
+      };
       setTimeout(() => document.addEventListener('keydown', onKey), 0);
-      overlay.addEventListener('click', () => { if (!armed) return; onCancel(); });
+      overlay.addEventListener('click', () => { if (!armed || ((window.performance && performance.now?performance.now():Date.now()) < acceptAfter)) return; onCancel(); });
     });
   }
 
