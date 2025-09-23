@@ -1,0 +1,58 @@
+/* 可选的自定义样式，Tailwind 已经提供大部分样式 */
+/* 聊天列表滚动条略微美化 */
+.scroll-smooth::-webkit-scrollbar { width: 8px; }
+.scroll-smooth::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+.scroll-smooth::-webkit-scrollbar-track { background: #f1f5f9; }
+
+/* iOS 安全区域适配 */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: constant(safe-area-inset-bottom);
+}
+
+/* 移动端输入体验：避免 iOS 聚焦缩放 */
+input, button {
+  font-size: 16px;
+}
+
+/* 滚动优化，避免页面级别回弹影响 */
+html, body {
+  overscroll-behavior: contain;
+}
+
+/* Toast 简单过渡 */
+.toast-enter { opacity: 0; transform: translateY(8px); }
+.toast-enter-active { transition: all .2s ease; opacity: 1; transform: translateY(0); }
+.toast-leave { opacity: 1; }
+.toast-leave-active { transition: opacity .2s ease; opacity: 0; }
+
+/* 美化聊天气泡 */
+.bubble { position: relative; border-radius: 1rem; padding: 0.5rem 0.75rem; }
+.bubble-mine { color: #fff; background: linear-gradient(180deg, #2563eb, #1d4ed8); }
+.bubble-other { background: #f0f9ff; color: #0f172a; }
+.bubble-shadow { box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12); }
+.bubble-tail-right::after,
+.bubble-tail-left::after { content: ""; position: absolute; width: 10px; height: 10px; background: inherit; transform: rotate(45deg); border-radius: 2px; }
+.bubble-tail-right::after { right: -3px; bottom: 10px; }
+.bubble-tail-left::after { left: -3px; bottom: 10px; }
+.bubble a { text-decoration: underline; word-break: break-word; }
+.bubble img, .bubble video { border-radius: 0.625rem; }
+
+/* Markdown 渲染样式（简化版） */
+.md-body { font-size: 0.95rem; line-height: 1.6; }
+.md-body p { margin: 0.25rem 0; }
+.md-body h1, .md-body h2, .md-body h3 { font-weight: 600; margin: 0.5rem 0 0.25rem; }
+.md-body h1 { font-size: 1.25rem; }
+.md-body h2 { font-size: 1.125rem; }
+.md-body h3 { font-size: 1rem; }
+.md-body ul, .md-body ol { margin: 0.25rem 0 0.25rem 1.25rem; }
+.md-body li { margin: 0.125rem 0; }
+.md-body blockquote { border-left: 3px solid #cbd5e1; padding-left: 0.75rem; color: #475569; margin: 0.25rem 0; }
+.md-body code { background: #0b1220; color: #f1f5f9; padding: 0.1rem 0.25rem; border-radius: 0.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.85em; }
+.md-body pre { background: #0b1220; color: #f1f5f9; padding: 0.75rem; border-radius: 0.5rem; overflow: auto; }
+.bubble-other .md-body code { background: #f1f5f9; color: #0f172a; }
+.bubble-other .md-body pre { background: #f1f5f9; color: #0f172a; }
+.md-body hr { border: 0; border-top: 1px solid #e5e7eb; margin: 0.5rem 0; }
+.md-body table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
+.md-body th, .md-body td { border: 1px solid #e5e7eb; padding: 0.25rem 0.5rem; }
+.md-body a { color: #2563eb; }

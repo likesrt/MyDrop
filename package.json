@@ -1,0 +1,20 @@
+{
+  "name": "single-user-multi-device-chat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "sqlite3": "^5.1.7",
+    "uuid": "^9.0.1",
+    "ws": "^8.18.0"
+  }
+}
+

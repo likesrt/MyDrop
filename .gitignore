@@ -1,0 +1,29 @@
+node_modules/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Environment and local data
+.env
+sqlite.db
+sqlite.db-shm
+sqlite.db-wal
+
+# Uploads & logs
+uploads/*
+!uploads/.gitkeep
+logs/
+
+# Package manager logs/locks
+npm-debug.log*
+yarn-error.log*
+yarn-debug.log*
+package-lock.json
+
+# Build/coverage/temp
+coverage/
+dist/
+tmp/
+*.log
