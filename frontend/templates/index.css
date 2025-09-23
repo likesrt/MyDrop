@@ -49,9 +49,10 @@
     --border: #243147;
     --link: #38bdf8;
 
-    --bubble-mine-bg: #0f2a1f;          /* subtle green-tinted dark */
-    --bubble-other-bg: #0f172a;
-    --bubble-mine-border: rgba(16,185,129,0.35);
+    /* 更柔和的“我方气泡”配色，避免过饱和发绿 */
+    --bubble-mine-bg: #0f1f1a;          /* 深色中性偏绿底 */
+    --bubble-other-bg: #0f172a;         /* 深色表面 */
+    --bubble-mine-border: rgba(16,185,129,0.28);
     --bubble-other-border: #243147;
 
     --code-bg: #0b1220;
@@ -239,6 +240,12 @@ body { background: var(--bg) !important; color: var(--text); }
 #mainHeader { background: var(--surface-translucent); border-color: var(--border); color: var(--text); }
 #composer { background: var(--surface-translucent); border-color: var(--border); }
 
+/* 输入区控件与附件按钮（深浅色适配） */
+#textInput { background: var(--surface); color: var(--text); border-color: var(--border); caret-color: var(--text); }
+#textInput::placeholder { color: var(--muted); }
+#fileBtn { background: var(--surface); border-color: var(--border); color: var(--text); }
+#fileBtn:hover { background: rgba(148,163,184,0.12); }
+
 /* Toast 简单过渡 */
 .toast-enter { opacity: 0; transform: translateY(8px); }
 .toast-enter-active { transition: all .2s ease; opacity: 1; transform: translateY(0); }
@@ -297,3 +304,6 @@ body { background: var(--bg) !important; color: var(--text); }
 @media (min-width: 640px) {
   .bubble-wrap { max-width: 85%; }
 }
+
+/* 设置页面 Section 遵循主题色 */
+section[id^="tab-"] { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
