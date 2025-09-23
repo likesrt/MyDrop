@@ -127,19 +127,9 @@
     linear-gradient(90deg, rgba(15,23,42,0.03) 1px, transparent 1px);
   background-size: 40px 40px; opacity: .5; mix-blend-mode: normal;
 }
-@media (prefers-color-scheme: dark) {
-  .bg-decor {
-    background-image:
-      radial-gradient(600px 600px at 10% 15%, rgba(16,185,129,0.08), transparent 60%),
-      radial-gradient(600px 600px at 85% 80%, rgba(139,92,246,0.08), transparent 60%),
-      linear-gradient(transparent, transparent);
-  }
-  .bg-decor::after {
-    background-image:
-      linear-gradient(rgba(226,232,240,0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(226,232,240,0.05) 1px, transparent 1px);
-  }
-}
+@media (prefers-color-scheme: dark) { .bg-decor { background-image: none; } .bg-decor::after { background-image: none; } }
+:root[data-theme='dark'] .bg-decor { background-image: none; }
+:root[data-theme='dark'] .bg-decor::after { background-image: none; }
 
 /* 卡片组件 */
 .card {
@@ -240,8 +230,8 @@ body { background: var(--bg) !important; color: var(--text); }
 }
 
 /* 顶部与底部区域（主题适配） */
-#mainHeader { background: var(--surface-translucent); border-color: var(--border); color: var(--text); }
-#composer { background: var(--surface-translucent); border-color: var(--border); }
+#mainHeader { background: var(--surface); border-color: var(--border); color: var(--text); }
+#composer { background: var(--surface); border-color: var(--border); }
 
 /* 输入区控件与附件按钮（深浅色适配） */
 #textInput { background: var(--surface); color: var(--text); border-color: var(--border); caret-color: var(--text); }
@@ -269,16 +259,15 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .toast-leave { opacity: 1; }
 .toast-leave-active { transition: opacity .2s ease; opacity: 0; }
 
-/* Toast 主题适配与类型色彩 */
+/* Toast 主题适配与类型色彩（暗色纯色，不使用渐变/高模糊） */
 .toast {
-  background: var(--surface-elev);
+  background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
   box-shadow: 0 10px 24px rgba(2,6,23,0.35);
-  backdrop-filter: saturate(140%) blur(4px);
 }
 :root { --accent-success: #10b981; --accent-warn: #f59e0b; --accent-error: #ef4444; }
 .toast--success { border-left-color: var(--accent-success); }
@@ -329,7 +318,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 }
 .msg-highlight .bubble {
   border-color: rgba(37,99,235,0.7) !important;
-  background-image: linear-gradient(180deg, rgba(59,130,246,0.08), rgba(59,130,246,0));
   animation: msgPulse 1.3s ease-out 2;
 }
 
@@ -342,14 +330,13 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 /* 设置页面 Section 遵循主题色 */
 section[id^="tab-"] { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
-/* 全屏编辑器（深浅色适配） */
-#fs-editor { background: var(--surface-elev); color: var(--text); }
-#fs-editor header { background: var(--surface-elev); border-color: var(--border); }
+#fs-editor { background: var(--surface); color: var(--text); }
+#fs-editor header { background: var(--surface); border-color: var(--border); }
 #fs-editor #fsInput { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 #fs-editor #fsPreview { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
-/* 弹窗卡片使用更高层级表面色以增强对比 */
-#modal-root .modal-card { background: var(--surface-elev); color: var(--text); border: 1px solid var(--border); }
+/* 弹窗卡片使用统一表面色（暗色纯色，日间干净） */
+#modal-root .modal-card { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
 /* Tailwind 文本灰度在暗色下的可读性修复 */
 @media (prefers-color-scheme: dark) {
