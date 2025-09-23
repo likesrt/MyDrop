@@ -6,7 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <title>MyDrop 管理</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/static/tailwind.css" />
+    <!-- SweetAlert2: prefer local vendor, fallback to CDN -->
+    <link rel="stylesheet" href="/static/vendor/sweetalert2.min.css" />
+    <script src="/static/vendor/sweetalert2.all.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <link rel="stylesheet" href="/index.css" />
   </head>
   <body class="bg-slate-100 min-h-[100dvh]">
@@ -75,10 +80,12 @@
           <select id="deviceFilter" class="border rounded px-3 py-2">
             <option value="">全部设备</option>
           </select>
+          <button id="clearAllMessagesBtn" class="btn pressable text-rose-700 border-rose-300" title="清空全部消息与文件">清空全部</button>
         </div>
         <div id="messageListAdmin" class="space-y-2"></div>
       </section>
     </main>
+    <script src="/js/ui.js"></script>
     <script src="/js/templates.js"></script>
     <script src="/admin.js"></script>
     <script src="/js/theme.js"></script>
