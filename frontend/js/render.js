@@ -80,7 +80,7 @@ function renderFilePreviews(files) {
     if (isImage(f)) {
       return `
         <div class="mt-2">
-          <img src="${url}" alt="${window.MyDropUtils.escapeHTML(f.original_name)}" class="max-h-64 rounded object-contain" />
+          <img src="${url}" alt="${window.MyDropUtils.escapeHTML(f.original_name)}" class="max-w-full max-h-64 rounded object-contain" />
           <div class="text-xs mt-1"><a class="underline" href="${downloadUrl}" target="_blank">下载 (${window.MyDropUtils.escapeHTML(f.original_name)})</a></div>
         </div>
       `;
@@ -88,7 +88,7 @@ function renderFilePreviews(files) {
     if (isVideo(f)) {
       return `
         <div class="mt-2">
-          <video class="max-h-64 rounded" src="${url}" controls playsinline></video>
+          <video class="max-w-full max-h-64 rounded" src="${url}" controls playsinline></video>
           <div class="text-xs mt-1"><a class="underline" href="${downloadUrl}" target="_blank">下载 (${window.MyDropUtils.escapeHTML(f.original_name)})</a></div>
         </div>
       `;
@@ -120,8 +120,8 @@ function renderMessage(m, opts = {}) {
   const fileBlocks = renderFilePreviews(m.files || []);
   return `
     <div class="w-full flex ${row}" id="message-${m.id}">
-      <div class="max-w-[80%] min-w-0 flex flex-col ${align}">
-        <div class="${bubbleCls} text-sm leading-relaxed ${opts.tight ? 'mt-0.5' : ''}">
+      <div class="max-w-full sm:max-w-[80%] min-w-0 flex flex-col ${align}">
+        <div class="${bubbleCls} text-sm leading-relaxed ${opts.tight ? 'mt-0.5' : ''} overflow-hidden break-words">
           ${textHTML}
           ${fileBlocks}
           <div class="mt-2 flex items-center justify-end">
