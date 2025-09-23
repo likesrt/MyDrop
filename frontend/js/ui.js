@@ -83,10 +83,6 @@ function showConfirm(message, { title = '确认', confirmText = '确定', cancel
     const detach = () => document.removeEventListener('keydown', onKey);
     const onCancel = () => { detach(); closeModal(root, overlay); resolve(false); };
     const onOk = () => { detach(); closeModal(root, overlay); resolve(true); };
-    card.addEventListener('click', (e) => e.stopPropagation());
-    card.querySelector('[data-act="cancel"]').addEventListener('click', onCancel);
-    card.querySelector('[data-act="ok"]').addEventListener('click', onOk);
-
     const onKey = (e) => {
       const t = (window.performance && performance.now) ? performance.now() : Date.now();
       if (!armed || t < acceptAfter) return;
@@ -94,7 +90,21 @@ function showConfirm(message, { title = '确认', confirmText = '确定', cancel
       if (e.key === 'Escape') onCancel();
       if (e.key === 'Enter') onOk();
     };
-    setTimeout(() => document.addEventListener('keydown', onKey), 0);
+    // 等模板渲染完成后再绑定事件
+    window.MyDropTemplates.getTemplate('modal-confirm', {
+      title: window.MyDropUtils.escapeHTML(title),
+      message: window.MyDropUtils.escapeHTML(String(message||'')),
+      confirmText: window.MyDropUtils.escapeHTML(confirmText),
+      cancelText: window.MyDropUtils.escapeHTML(cancelText)
+    }).then(html => {
+      card.innerHTML = html;
+      card.addEventListener('click', (e) => e.stopPropagation());
+      const cancelBtn = card.querySelector('[data-act="cancel"]');
+      const okBtn = card.querySelector('[data-act="ok"]');
+      if (cancelBtn) cancelBtn.addEventListener('click', onCancel);
+      if (okBtn) okBtn.addEventListener('click', onOk);
+      setTimeout(() => document.addEventListener('keydown', onKey), 0);
+    });
     overlay.addEventListener('click', () => { if (!armed || ((window.performance && performance.now?performance.now():Date.now()) < acceptAfter)) return; onCancel(); });
   });
 }
@@ -121,10 +131,6 @@ function showPrompt(message, defaultValue = '') {
     const detach = () => document.removeEventListener('keydown', onKey);
     const onCancel = () => { detach(); closeModal(root, overlay); resolve(null); };
     const onOk = () => { const v = (getInput()||{}).value; detach(); closeModal(root, overlay); resolve(v); };
-    card.addEventListener('click', (e) => e.stopPropagation());
-    card.querySelector('[data-act="cancel"]').addEventListener('click', onCancel);
-    card.querySelector('[data-act="ok"]').addEventListener('click', onOk);
-
     const onKey = (e) => {
       const t = (window.performance && performance.now) ? performance.now() : Date.now();
       if (!armed || t < acceptAfter) return;
@@ -132,7 +138,18 @@ function showPrompt(message, defaultValue = '') {
       if (e.key === 'Escape') onCancel();
       if (e.key === 'Enter') onOk();
     };
-    setTimeout(() => { const input = getInput(); if (input) { input.focus(); input.select(); } document.addEventListener('keydown', onKey); }, 0);
+    window.MyDropTemplates.getTemplate('modal-prompt', {
+      title: window.MyDropUtils.escapeHTML(String(message||'')),
+      defaultValue: window.MyDropUtils.escapeHTML(String(defaultValue||''))
+    }).then(html => {
+      card.innerHTML = html;
+      card.addEventListener('click', (e) => e.stopPropagation());
+      const cancelBtn = card.querySelector('[data-act="cancel"]');
+      const okBtn = card.querySelector('[data-act="ok"]');
+      if (cancelBtn) cancelBtn.addEventListener('click', onCancel);
+      if (okBtn) okBtn.addEventListener('click', onOk);
+      setTimeout(() => { const input = getInput(); if (input) { input.focus(); input.select(); } document.addEventListener('keydown', onKey); }, 0);
+    });
     overlay.addEventListener('click', () => { if (!armed || ((window.performance && performance.now?performance.now():Date.now()) < acceptAfter)) return; onCancel(); });
   });
 }
