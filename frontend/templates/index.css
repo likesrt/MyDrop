@@ -71,6 +71,7 @@
 :root[data-theme='light'] {
   --bg: #f1f5f9;
   --surface: #ffffff;
+  --surface-modal: #ffffff;
   --surface-translucent: rgba(255,255,255,0.95);
   --text: #0f172a;
   --muted: #475569;
@@ -89,6 +90,7 @@
 :root[data-theme='dark'] {
   --bg: #0b1220;
   --surface: #0f172a;
+  --surface-modal: #111827;
   --surface-translucent: rgba(15,23,42,0.9);
   --text: #e5e7eb;
   --muted: #94a3b8;
@@ -344,6 +346,9 @@ section[id^="tab-"] { background: var(--surface); color: var(--text); border: 1p
 
 /* 弹窗卡片使用统一表面色（暗色纯色，日间干净） */
 #modal-root .modal-card { background: var(--surface-modal); color: var(--text); border: 1px solid var(--border); box-shadow: 0 16px 36px rgba(2,6,23,0.45); }
+/* 弹窗内按钮与主题色适配（确保取消按钮不发黑、主按钮清晰） */
+#modal-root .btn { background: var(--surface-modal) !important; color: var(--text) !important; border-color: var(--border) !important; }
+#modal-root .btn-primary { background: var(--theme-500) !important; color: #fff !important; border-color: transparent !important; }
 
 /* 全局统一文字颜色映射，保证不同页面一致；深浅色由变量控制 */
 :root .text-slate-800, :root .text-slate-900 { color: var(--text) !important; }

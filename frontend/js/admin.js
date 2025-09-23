@@ -278,8 +278,8 @@
           filtered = filtered.filter(m => (m.text || '').toLowerCase().includes(q) || (m.files||[]).some(f => (f.original_name||'').toLowerCase().includes(q)));
         }
         filtered = filtered.slice().sort((a,b) => (b.created_at||0) - (a.created_at||0));
-        // legacy render (kept for fallback)
-        root.innerHTML = filtered.map(m => {
+        // legacy render disabled (using templates below)
+        if (false) root.innerHTML = filtered.map(m => {
           const time = new Date(m.created_at).toLocaleString();
           const sLabel = deviceLabel(m.sender);
           const files = (m.files||[]).map(f => `<div class=\"text-xs text-slate-600 flex items-center gap-2\">📎 ${f.original_name} <button class=\"btn pressable\" data-action=\"file-del\" data-id=\"${f.id}\">删除文件</button></div>`).join('');
