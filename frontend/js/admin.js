@@ -91,7 +91,7 @@
   }
 
   function switchTab(name) {
-    const sections = ['dashboard','settings','devices','messages'];
+    const sections = ['dashboard','settings','devices','messages','cache'];
     sections.forEach(id => {
       const el = qs(`#tab-${id}`);
       if (!el) return;
@@ -102,6 +102,7 @@
     });
     if (name === 'devices') renderDevices();
     if (name === 'messages') renderMessages();
+    if (name === 'cache') bindCacheTools();
   }
 
   async function renderDashboard() {
@@ -128,34 +129,33 @@
         currentUsername: (qs('#currentUsername')?.textContent || '')
       });
       qs('#dashboardCards').innerHTML = html;
-      // 绑定清理缓存按钮
-      const clearBtn = qs('#clearCacheBtn');
-      if (clearBtn) {
-        clearBtn.addEventListener('click', async () => {
-          try {
-            const ok = await showConfirm('清除本地静态资源缓存？\n不会清除登录状态或设备信息。', { title: '确认', confirmText: '清除', cancelText: '取消' });
-            if (!ok) return;
-            let removed = 0;
-            if ('caches' in window) {
-              const keys = await caches.keys();
-              const targets = keys.filter(k => k.startsWith('mydrop-static-v'));
-              await Promise.all(targets.map(async k => { const ok = await caches.delete(k); if (ok) removed++; }));
-            }
-            // 让 SW 立即激活新版本（如果有）
-            try {
-              if (navigator.serviceWorker?.controller) {
-                navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
-              }
-            } catch (_) {}
-            toast(`已清除 ${removed} 个缓存条目`, 'success');
-          } catch (e) {
-            toast(formatError(e, '清理失败'), 'error');
-          }
-        });
-      }
     } catch (e) {
       // ignore dashboard if API fails
     }
+  }
+
+  function bindCacheTools() {
+    const btn = qs('#clearCacheBtn');
+    if (!btn) return;
+    // 防重复绑定
+    if (btn._bound) return; btn._bound = true;
+    btn.addEventListener('click', async () => {
+      try {
+        const ok = await showConfirm('清除本地静态资源缓存？\n不会清除登录状态或设备信息。', { title: '确认', confirmText: '清除', cancelText: '取消' });
+        if (!ok) return;
+        let removed = 0;
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          const targets = keys.filter(k => k.startsWith('mydrop-static-v'));
+          await Promise.all(targets.map(async k => { const ok = await caches.delete(k); if (ok) removed++; }));
+        }
+        // 提醒 SW 立即激活（如存在新版本）
+        try { navigator.serviceWorker?.controller?.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {}
+        toast(`已清除 ${removed} 个缓存条目`, 'success');
+      } catch (e) {
+        toast(formatError(e, '清理失败'), 'error');
+      }
+    });
   }
 
   async function renderDevices() {

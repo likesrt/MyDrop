@@ -34,15 +34,13 @@
         <button id="tabSettingsBtn" class="btn pressable" data-tab="settings">账号设置</button>
         <button id="tabDevicesBtn" class="btn pressable" data-tab="devices">设备管理</button>
         <button id="tabMessagesBtn" class="btn pressable" data-tab="messages">消息管理</button>
+        <button id="tabCacheBtn" class="btn pressable" data-tab="cache">缓存管理</button>
       </div>
       <div id="notice" class="hidden p-3 mb-3 rounded bg-amber-50 text-amber-800 text-sm"></div>
 
       <section id="tab-dashboard" class="bg-white rounded shadow p-4 hidden">
         <h2 class="font-medium mb-3">仪表盘</h2>
         <div id="dashboardCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3"></div>
-        <div class="mt-4 pt-3 border-t flex items-center justify-end">
-          <button id="clearCacheBtn" class="btn pressable" title="清除本地静态资源缓存（不影响登录状态）">清除本地静态资源缓存</button>
-        </div>
       </section>
 
       <section id="tab-settings" class="bg-white rounded shadow p-4 hidden">
@@ -92,6 +90,14 @@
           <button id="clearAllMessagesBtn" class="btn pressable text-rose-700 border-rose-300" title="清空全部消息与文件">清空全部</button>
         </div>
         <div id="messageListAdmin" class="space-y-2"></div>
+      </section>
+
+      <section id="tab-cache" class="bg-white rounded shadow p-4 hidden">
+        <h2 class="font-medium mb-3">缓存管理</h2>
+        <p class="text-sm text-slate-600 mb-3">清理本地静态资源缓存（HTML/CSS/JS）。不会清除登录状态、设备号或 Cookie。</p>
+        <div class="flex items-center gap-2">
+          <button id="clearCacheBtn" class="btn pressable">清除本地静态资源缓存</button>
+        </div>
       </section>
     </main>
     <script src="/js/ui.js"></script>
