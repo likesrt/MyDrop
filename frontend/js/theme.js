@@ -3,7 +3,7 @@
   const KEY = 'theme'; // values: 'auto' | 'light' | 'dark'
 
   function get() {
-    try { return localStorage.getItem(KEY) || 'auto'; } catch (_) { return 'auto'; }
+    try { return localStorage.getItem(KEY) || 'light'; } catch (_) { return 'light'; }
   }
 
   function save(mode) {
