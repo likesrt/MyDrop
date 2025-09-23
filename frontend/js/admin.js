@@ -17,16 +17,6 @@
     return res.json();
   }
 
-  function ensureToastRoot() {
-    let el = qs('#toast-root');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'toast-root';
-      el.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-50 space-y-2 w-[92%] max-w-md';
-      document.body.appendChild(el);
-    }
-    return el;
-  }
   function formatError(err, tip='') {
     try {
       const msg = (err && err.message) ? String(err.message) : '请求失败';
@@ -35,73 +25,19 @@
     } catch (_) { return tip ? `${tip}：请求失败` : '请求失败'; }
   }
 
-  function toast(message, type='info') {
-    const root = ensureToastRoot();
-    const div = document.createElement('div');
-    const t = (type === 'error' || type === 'warn' || type === 'success') ? type : 'info';
-    div.className = `toast toast--${t}`;
-    div.textContent = message;
-    root.appendChild(div);
-    setTimeout(() => { try { div.remove(); } catch(_){} }, 3000);
-  }
+  function toast(message, type='info') { try { window.MyDropUI.toast(message, type); } catch (_) { alert(String(message||'')); } }
 
   // 自定义弹窗（与前台一致）
-  function ensureModalRoot() {
-    let el = qs('#modal-root');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'modal-root';
-      el.className = 'fixed inset-0 z-50 flex items-center justify-center p-3';
-      document.body.appendChild(el);
-    }
-    try { el.style.pointerEvents = 'auto'; el.style.display = ''; } catch (_) {}
-    return el;
-  }
-  function closeModal(root, overlay) {
-    try { if (overlay) overlay.classList.add('opacity-0'); } catch (_) {}
-    setTimeout(() => { try { root.remove(); } catch (_) {} }, 120);
-  }
   function showConfirm(message, { title = '确认', confirmText = '确定', cancelText = '取消' } = {}) {
-    return new Promise((resolve) => {
-      const root = ensureModalRoot();
-      const overlay = document.createElement('div');
-      overlay.className = 'absolute inset-0 bg-black/50 transition-opacity';
-      const card = document.createElement('div');
-      card.className = 'relative modal-card rounded shadow-lg border w-full max-w-md p-4 space-y-3';
-      card.innerHTML = `
-        <div class="text-base font-medium text-slate-800">${String(title)}</div>
-        <div class="text-sm text-slate-700">${String(message)}</div>
-        <div class="flex items-center justify-end gap-2 pt-1">
-          <button class="btn pressable" data-act="cancel">${cancelText}</button>
-          <button class="btn btn-primary pressable" data-act="ok">${confirmText}</button>
-        </div>`;
-      root.innerHTML = '';
-      root.appendChild(overlay);
-      root.appendChild(card);
-      const now = (window.performance && performance.now) ? performance.now() : Date.now();
-      const acceptAfter = now + 240;
-      let armed = false; setTimeout(() => { armed = true; }, 180);
-      const detach = () => document.removeEventListener('keydown', onKey);
-      const onCancel = () => { detach(); closeModal(root, overlay); resolve(false); };
-      const onOk = () => { detach(); closeModal(root, overlay); resolve(true); };
-      card.addEventListener('click', (e) => e.stopPropagation());
-      card.querySelector('[data-act="cancel"]').addEventListener('click', onCancel);
-      card.querySelector('[data-act="ok"]').addEventListener('click', onOk);
-      const onKey = (e) => {
-        const t = (window.performance && performance.now) ? performance.now() : Date.now();
-        if (!armed || t < acceptAfter) return;
-        if (e.repeat) return;
-        if (e.key === 'Escape') onCancel();
-        if (e.key === 'Enter') onOk();
-      };
-      setTimeout(() => document.addEventListener('keydown', onKey), 0);
-      overlay.addEventListener('click', () => { if (!armed || ((window.performance && performance.now?performance.now():Date.now()) < acceptAfter)) return; onCancel(); });
-    });
+    if (window.MyDropUI && window.MyDropUI.showConfirm) return window.MyDropUI.showConfirm(message, { title, confirmText, cancelText });
+    return Promise.resolve(window.confirm(String(message||'确认操作？')));
   }
 
   async function init() {
     try {
       try { await window.MyDropTemplates.preloadTemplates(); } catch (_) {}
+      // 读取公共配置（管理页不启用 Header 自动隐藏）
+      try { await api('/config'); } catch(_) {}
       const me = await api('/me');
       qs('#currentUsername').textContent = me.user.username;
       currentDeviceId = me?.device?.device_id || null;
@@ -269,6 +205,21 @@
         );
         deviceSel.innerHTML = options.join('');
       }
+      const clearBtn = qs('#clearAllMessagesBtn');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', async () => {
+          const ok1 = await showConfirm('确认清空所有消息与文件？此操作不可恢复');
+          if (!ok1) return;
+          const ok2 = await showConfirm('再次确认：清空全部消息与文件');
+          if (!ok2) return;
+          try {
+            await api('/admin/messages/clear', { method: 'POST' });
+            toast('已清空所有消息', 'success');
+            renderMessages();
+          } catch (e) { toast(formatError(e, '清空失败'), 'error'); }
+        }, { once: true });
+      }
+
       const renderList = async () => {
         const q = (searchBox.value || '').toLowerCase().trim();
         const selectedDid = (deviceSel?.value || '').trim();
