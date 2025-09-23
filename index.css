@@ -100,7 +100,7 @@ html, body {
 /* 聊天气泡（主题化） */
 .bubble { position: relative; border-radius: 1rem; padding: 0.5rem 0.75rem; }
 .bubble-mine { color: #0f172a; background: #f0fdf4; border: 1px solid rgba(16,185,129,0.25); }
-.bubble-other { background: #ecfdf5; color: #0f172a; }
+.bubble-other { background: var(--neutral-50); color: #0f172a; border: 1px solid var(--neutral-200); }
 .bubble-shadow { box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12); }
 .bubble-tail-right::after,
 .bubble-tail-left::after { content: ""; position: absolute; width: 10px; height: 10px; background: inherit; transform: rotate(45deg); border-radius: 2px; }
