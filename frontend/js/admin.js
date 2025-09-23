@@ -38,11 +38,11 @@
   function toast(message, type='info') {
     const root = ensureToastRoot();
     const div = document.createElement('div');
-    const color = type === 'error' ? 'bg-red-600' : type === 'warn' ? 'bg-amber-600' : type === 'success' ? 'bg-emerald-600' : 'bg-slate-900';
-    div.className = `${color} text-white px-3 py-2 rounded shadow`;
+    const t = (type === 'error' || type === 'warn' || type === 'success') ? type : 'info';
+    div.className = `toast toast--${t}`;
     div.textContent = message;
     root.appendChild(div);
-    setTimeout(() => { div.remove(); }, 3000);
+    setTimeout(() => { try { div.remove(); } catch(_){} }, 3000);
   }
 
   // 自定义弹窗（与前台一致）
@@ -67,7 +67,7 @@
       const overlay = document.createElement('div');
       overlay.className = 'absolute inset-0 bg-black/30 transition-opacity';
       const card = document.createElement('div');
-      card.className = 'relative bg-white rounded shadow-lg border w-full max-w-md p-4 space-y-3';
+      card.className = 'relative modal-card rounded shadow-lg border w-full max-w-md p-4 space-y-3';
       card.innerHTML = `
         <div class="text-base font-medium text-slate-800">${String(title)}</div>
         <div class="text-sm text-slate-700">${String(message)}</div>

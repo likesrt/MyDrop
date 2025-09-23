@@ -263,6 +263,22 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .toast-leave { opacity: 1; }
 .toast-leave-active { transition: opacity .2s ease; opacity: 0; }
 
+/* Toast 主题适配与类型色彩 */
+.toast {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 6px 14px rgba(15,23,42,0.22);
+}
+:root { --accent-success: #10b981; --accent-warn: #f59e0b; --accent-error: #ef4444; }
+.toast--success { border-left-color: var(--accent-success); }
+.toast--warn { border-left-color: var(--accent-warn); }
+.toast--error { border-left-color: var(--accent-error); }
+.toast--info { border-left-color: var(--link); }
+
 /* 聊天气泡（主题化） */
 .bubble { position: relative; border-radius: 0.25rem; padding: 0.5rem 0.75rem; max-width: 100%; }
 .bubble-mine { color: var(--text); background: var(--bubble-mine-bg); border: 1px solid var(--bubble-mine-border); }

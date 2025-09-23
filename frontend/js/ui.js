@@ -25,17 +25,17 @@ function formatError(err, tip = '') {
 function toast(message, type = 'info') {
   const root = ensureToastRoot();
   const div = document.createElement('div');
-  const color = type === 'error' ? 'bg-red-600' : type === 'warn' ? 'bg-amber-600' : type === 'success' ? 'bg-emerald-600' : 'bg-slate-900';
-  div.className = `toast-enter ${color} text-white px-3 py-2 rounded shadow`;
+  const t = (type === 'error' || type === 'warn' || type === 'success') ? type : 'info';
+  div.className = `toast toast-enter toast--${t}`;
   div.textContent = message;
   root.appendChild(div);
   requestAnimationFrame(() => {
     div.classList.remove('toast-enter');
     div.classList.add('toast-enter-active');
   });
-  const t = setTimeout(() => close(), 3000);
+  const timer = setTimeout(() => close(), 3000);
   function close() {
-    clearTimeout(t);
+    clearTimeout(timer);
     div.classList.add('toast-leave-active');
     setTimeout(() => div.remove(), 200);
   }
@@ -66,7 +66,7 @@ function showConfirm(message, { title = '确认', confirmText = '确定', cancel
     const overlay = document.createElement('div');
     overlay.className = 'absolute inset-0 bg-black/30 transition-opacity';
     const card = document.createElement('div');
-    card.className = 'relative bg-white rounded shadow-lg border w-full max-w-md p-4 space-y-3 anim-fadeIn';
+    card.className = 'relative modal-card rounded shadow-lg border w-full max-w-md p-4 space-y-3 anim-fadeIn';
     card.innerHTML = `
       <div class="text-base font-medium text-slate-800">${window.MyDropUtils.escapeHTML(title)}</div>
       <div class="text-sm text-slate-700">${window.MyDropUtils.escapeHTML(String(message||''))}</div>
@@ -106,7 +106,7 @@ function showPrompt(message, defaultValue = '') {
     const overlay = document.createElement('div');
     overlay.className = 'absolute inset-0 bg-black/30 transition-opacity';
     const card = document.createElement('div');
-    card.className = 'relative bg-white rounded shadow-lg border w-full max-w-md p-4 space-y-3 anim-fadeIn';
+    card.className = 'relative modal-card rounded shadow-lg border w-full max-w-md p-4 space-y-3 anim-fadeIn';
     card.innerHTML = `
       <div class="text-base font-medium text-slate-800">${window.MyDropUtils.escapeHTML(String(message||''))}</div>
       <div><input id="_promptInput" class="w-full border rounded px-3 py-2" value="${window.MyDropUtils.escapeHTML(String(defaultValue||''))}" /></div>
