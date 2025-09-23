@@ -24,6 +24,10 @@ const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const JWT_EXPIRES_DAYS = process.env.JWT_EXPIRES_DAYS ? parseInt(process.env.JWT_EXPIRES_DAYS, 10) : 7;
 const HEADER_AUTO_HIDE = /^(1|true|yes)$/i.test(process.env.HEADER_AUTO_HIDE || '');
+// PWA static asset version for SW cache-busting via query param
+let PKG_VERSION = '0.0.0';
+try { PKG_VERSION = require('./package.json').version || '0.0.0'; } catch (_) {}
+const ASSET_VERSION = process.env.ASSET_VERSION || PKG_VERSION || String(Math.floor(Date.now() / 1000));
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -55,6 +59,14 @@ app.use('/static', express.static(path.join(TEMPLATES_DIR, 'static'), { maxAge: 
 app.use('/js', express.static(path.join(__dirname, 'frontend/js')));
 // Serve template components
 app.use('/templates', express.static(TEMPLATES_DIR));
+
+// PWA Service Worker (dynamic, embeds version to control cache keys via ?v=)
+app.get('/sw.js', (req, res) => {
+  res.type('application/javascript');
+  res.set('Cache-Control', 'no-cache');
+  const sw = `// Generated Service Worker\n\nconst ASSET_VERSION = ${JSON.stringify(ASSET_VERSION)};\nconst CACHE_NAME = 'mydrop-static-v' + ASSET_VERSION;\nconst PRECACHE_URLS = [\n  '/',\n  '/admin',\n  '/static/tailwind.css',\n  '/static/favicon.svg',\n  '/static/vendor/marked.min.js',\n  '/static/vendor/dompurify.min.js',\n  '/static/vendor/sweetalert2.all.min.js',\n  '/static/vendor/sweetalert2.min.css',\n  '/index.css',\n  '/js/utils.js',\n  '/js/ui.js',\n  '/js/theme.js',\n  '/js/api.js',\n  '/js/templates.js',\n  '/js/render.js',\n  '/js/auth.js',\n  '/js/websocket.js',\n  '/js/editor.js',\n  '/js/chat.js',\n  '/js/app.js',\n  '/admin.js'\n];\n\nfunction withV(url) { try { const u = new URL(url, self.location.origin); u.searchParams.set('v', ASSET_VERSION); return u.toString(); } catch (e) { return url; } }\n\nself.addEventListener('install', (event) => {\n  event.waitUntil((async () => {\n    const cache = await caches.open(CACHE_NAME);\n    try {\n      // 静态资源使用带版本查询参数缓存；HTML 直接按路径缓存\n      const staticUrls = PRECACHE_URLS.filter(u => u.startsWith('/static/') || u.startsWith('/js/') || u === '/index.css' || u === '/admin.js');\n      const htmlUrls = PRECACHE_URLS.filter(u => u === '/' || u === '/admin');\n      await cache.addAll(staticUrls.map(withV).concat(htmlUrls));\n    } catch (_) {}\n    self.skipWaiting();\n  })());\n});\n\nself.addEventListener('activate', (event) => {\n  event.waitUntil((async () => {\n    const keys = await caches.keys();\n    await Promise.all(keys.filter(k => k.startsWith('mydrop-static-v') && k !== CACHE_NAME).map(k => caches.delete(k)));\n    self.clients.claim();\n  })());\n});\n\nself.addEventListener('fetch', (event) => {\n  const req = event.request;\n  if (req.method !== 'GET') return;\n  const url = new URL(req.url);\n  if (url.origin !== self.location.origin) return;\n  const p = url.pathname;\n  const isDoc = req.mode === 'navigate' || p === '/' || p === '/admin';\n  const isStatic = p.startsWith('/static/') || p.startsWith('/js/') || p === '/index.css' || p === '/admin.js' || p.startsWith('/templates/components/');\n  if (!(isDoc || isStatic)) return;\n  event.respondWith((async () => {\n    const cacheKey = isStatic ? withV(url.toString()) : url.toString();\n    const cache = await caches.open(CACHE_NAME);\n    const cached = await cache.match(cacheKey, { ignoreSearch: !isStatic ? true : false });\n    if (cached) return cached;\n    try {\n      const res = await fetch(cacheKey, { credentials: 'same-origin' });\n      if (res && res.status === 200) { try { await cache.put(cacheKey, res.clone()); } catch (_) {} }\n      return res;\n    } catch (err) {\n      const any = await cache.match(url.toString(), { ignoreSearch: true });\n      if (any) return any;\n      throw err;\n    }\n  })());\n});\n`;
+  res.send(sw);
+});
 
 // Serve minimal static assets only (moved under templates)
 app.get('/', (req, res) => {

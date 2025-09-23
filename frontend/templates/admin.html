@@ -11,8 +11,14 @@
     <!-- SweetAlert2: prefer local vendor, fallback to CDN -->
     <link rel="stylesheet" href="/static/vendor/sweetalert2.min.css" />
     <script src="/static/vendor/sweetalert2.all.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <link rel="stylesheet" href="/index.css" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function(){});
+        });
+      }
+    </script>
   </head>
   <body class="bg-slate-100 min-h-[100dvh]">
     <div class="bg-decor" aria-hidden="true"></div>
@@ -28,6 +34,7 @@
         <button id="tabSettingsBtn" class="btn pressable" data-tab="settings">账号设置</button>
         <button id="tabDevicesBtn" class="btn pressable" data-tab="devices">设备管理</button>
         <button id="tabMessagesBtn" class="btn pressable" data-tab="messages">消息管理</button>
+        <button id="tabCacheBtn" class="btn pressable" data-tab="cache">缓存管理</button>
       </div>
       <div id="notice" class="hidden p-3 mb-3 rounded bg-amber-50 text-amber-800 text-sm"></div>
 
@@ -83,6 +90,14 @@
           <button id="clearAllMessagesBtn" class="btn pressable text-rose-700 border-rose-300" title="清空全部消息与文件">清空全部</button>
         </div>
         <div id="messageListAdmin" class="space-y-2"></div>
+      </section>
+
+      <section id="tab-cache" class="bg-white rounded shadow p-4 hidden">
+        <h2 class="font-medium mb-3">缓存管理</h2>
+        <p class="text-sm text-slate-600 mb-3">清理本地静态资源缓存（HTML/CSS/JS）。不会清除登录状态、设备号或 Cookie。</p>
+        <div class="flex items-center gap-2">
+          <button id="clearCacheBtn" class="btn pressable">清除本地静态资源缓存</button>
+        </div>
       </section>
     </main>
     <script src="/js/ui.js"></script>
