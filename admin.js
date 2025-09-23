@@ -4,6 +4,7 @@
 
   async function api(path, opts={}) {
     const res = await fetch(path, opts);
+    if (res.status === 401) { location.href = '/'; throw new Error('未登录'); }
     if (!res.ok) {
       let msg = '请求失败';
       try { const j = await res.json(); msg = j.error || msg; } catch(_){}

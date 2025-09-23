@@ -34,6 +34,11 @@
 
   async function api(path, opts = {}) {
     const res = await fetch(path, opts);
+    if (res.status === 401) {
+      try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
+      location.href = '/';
+      throw new Error('未登录');
+    }
     if (!res.ok) {
       let msg = '请求失败';
       try { const j = await res.json(); msg = j.error || msg; } catch (_) {}
@@ -385,6 +390,11 @@
       for (const f of files) fd.append('files', f);
       try {
         const res = await fetch('/message', { method: 'POST', body: fd });
+        if (res.status === 401) {
+          try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
+          location.href = '/';
+          return;
+        }
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           throw new Error(j.error || '发送失败');
