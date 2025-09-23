@@ -87,6 +87,11 @@ input, button {
   font-size: 16px;
 }
 
+/* 仅缩小聊天输入框占位符字体，不影响其它输入 */
+#textInput::placeholder {
+  font-size: 13px;
+}
+
 /* 滚动优化，避免页面级别回弹影响 */
 html, body {
   overscroll-behavior: contain;
