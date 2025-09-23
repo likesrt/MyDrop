@@ -205,7 +205,9 @@
           } catch (_) { return code; }
         }
       });
-      let raw = window.marked.parse(text);
+      // 预处理：将纯文本 URL 转换为 Markdown 链接，确保可点击
+      const prelinked = (text || '').replace(urlRegex(), (u) => `[${u}](${u})`);
+      let raw = window.marked.parse(prelinked);
       // Sanitize and tweak links
       // force external links open new tab
       raw = raw.replace(/<a\s+/g, '<a target="_blank" rel="noreferrer noopener" ');
