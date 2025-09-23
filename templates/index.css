@@ -1,3 +1,4 @@
+/* moved to templates/index.css */
 /* 可选的自定义样式，Tailwind 已经提供大部分样式 */
 /* 隐藏所有滚动条（仍可滚动） */
 * { scrollbar-width: none; -ms-overflow-style: none; }
@@ -5,7 +6,7 @@
 
 /* 主题色与中性色变量 */
 :root {
-  --theme: #10b981; /* 翡翠绿 */
+  --theme: #10b981;
   --theme-500: #10b981;
   --theme-400: #34d399;
   --theme-600: #059669;
@@ -33,7 +34,7 @@
 
 /* 卡片组件 */
 .card {
-  position: relative; border-radius: 12px; background: #fff;
+  position: relative; border-radius: 4px; background: #fff;
   border: 1px solid rgba(16,185,129,0.25);
   box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
   transition: all .25s cubic-bezier(.4,0,.2,1);
@@ -46,7 +47,7 @@
 }
 .card-icon {
   width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 8px; background: rgba(16,185,129,0.12); color: var(--theme-600);
+  border-radius: 4px; background: rgba(16,185,129,0.12); color: var(--theme-600);
 }
 .card-title { font-weight: 600; color: var(--neutral-700); }
 .card-desc { font-size: 12px; color: #64748b; }
@@ -54,7 +55,7 @@
 
 /* 统一按钮样式与反馈 */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-  border-radius: 8px; padding: .5rem .875rem; font-weight: 500; transition: all .2s cubic-bezier(.4,0,.2,1);
+  border-radius: 4px; padding: .5rem .875rem; font-weight: 500; transition: all .2s cubic-bezier(.4,0,.2,1);
   border: 1px solid rgba(16,185,129,0.25); background: #fff; color: var(--theme-600);
 }
 .btn:hover { box-shadow: 0 6px 12px rgba(16,185,129,0.12); transform: translateY(-2px); border-color: rgba(16,185,129,0.4); }
@@ -98,7 +99,7 @@ html, body {
 .toast-leave-active { transition: opacity .2s ease; opacity: 0; }
 
 /* 聊天气泡（主题化） */
-.bubble { position: relative; border-radius: 1rem; padding: 0.5rem 0.75rem; }
+.bubble { position: relative; border-radius: 0.25rem; padding: 0.5rem 0.75rem; }
 .bubble-mine { color: #0f172a; background: #f0fdf4; border: 1px solid rgba(16,185,129,0.25); }
 .bubble-other { background: var(--neutral-50); color: #0f172a; border: 1px solid var(--neutral-200); }
 .bubble-shadow { box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12); }
@@ -107,7 +108,13 @@ html, body {
 .bubble-tail-right::after { right: -3px; bottom: 10px; }
 .bubble-tail-left::after { left: -3px; bottom: 10px; }
 .bubble a { text-decoration: underline; word-break: break-word; }
-.bubble img, .bubble video { border-radius: 0.625rem; }
+.bubble img, .bubble video { border-radius: 0.25rem; }
+
+/* 移动端防溢出与自适应 */
+.bubble, .md-body { word-break: break-word; overflow-wrap: anywhere; }
+.md-body img, .md-body video { max-width: 100%; height: auto; }
+.md-body pre { max-width: 100%; overflow-x: auto; }
+.md-body table { display: block; max-width: 100%; overflow-x: auto; }
 
 /* Markdown 渲染样式（简化版） */
 .md-body { font-size: 0.95rem; line-height: 1.6; }
@@ -120,7 +127,7 @@ html, body {
 .md-body li { margin: 0.125rem 0; }
 .md-body blockquote { border-left: 3px solid #cbd5e1; padding-left: 0.75rem; color: #475569; margin: 0.25rem 0; }
 .md-body code { background: #0b1220; color: #f1f5f9; padding: 0.1rem 0.25rem; border-radius: 0.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.85em; }
-.md-body pre { background: #0b1220; color: #f1f5f9; padding: 0.75rem; border-radius: 0.5rem; overflow: auto; }
+.md-body pre { background: #0b1220; color: #f1f5f9; padding: 0.75rem; border-radius: 0.25rem; overflow: auto; }
 .bubble-other .md-body code { background: #f1f5f9; color: #0f172a; }
 .bubble-other .md-body pre { background: #f1f5f9; color: #0f172a; }
 .md-body hr { border: 0; border-top: 1px solid #e5e7eb; margin: 0.5rem 0; }

@@ -83,6 +83,8 @@ async function init() {
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   )`);
+  // schema migrations
+  await ensureUserTokenVersionColumn();
   await ensureDefaultUser();
 }
 
@@ -95,6 +97,18 @@ async function ensureDefaultUser() {
     await run('INSERT INTO users (username, password_hash, is_default_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
       'admin', pw, 1, now, now,
     ]);
+  }
+}
+
+async function ensureUserTokenVersionColumn() {
+  try {
+    const cols = await all('PRAGMA table_info(users)');
+    const has = Array.isArray(cols) && cols.some(c => c.name === 'token_version');
+    if (!has) {
+      await run('ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0');
+    }
+  } catch (e) {
+    throw e;
   }
 }
 
@@ -219,7 +233,12 @@ async function updateUserAuth(id, { username = null, passwordHash = null, isDefa
   const newUsername = username ?? curr.username;
   const newPw = passwordHash ?? curr.password_hash;
   const newFlag = (isDefaultPassword === null || isDefaultPassword === undefined) ? curr.is_default_password : (isDefaultPassword ? 1 : 0);
-  await run('UPDATE users SET username = ?, password_hash = ?, is_default_password = ?, updated_at = ? WHERE id = ?', [newUsername, newPw, newFlag, now, id]);
+  // If password changed, also bump token_version to invalidate old tokens
+  if (passwordHash && passwordHash !== curr.password_hash) {
+    await run('UPDATE users SET username = ?, password_hash = ?, is_default_password = ?, updated_at = ?, token_version = COALESCE(token_version, 0) + 1 WHERE id = ?', [newUsername, newPw, newFlag, now, id]);
+  } else {
+    await run('UPDATE users SET username = ?, password_hash = ?, is_default_password = ?, updated_at = ? WHERE id = ?', [newUsername, newPw, newFlag, now, id]);
+  }
   return getUserById(id);
 }
 

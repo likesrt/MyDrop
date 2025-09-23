@@ -16,6 +16,7 @@ function createApiRouter(options) {
     jwtSecret,
     jwtExpiresDays,
     kickDevice, // function(deviceId)
+    kickUserSessions, // function(userId, { exceptDeviceId })
   } = options;
 
   const router = express.Router();
@@ -37,6 +38,12 @@ function createApiRouter(options) {
       const token = req.cookies?.[tokenCookieName] || (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
       if (!token) return res.status(401).json({ error: 'Not authenticated' });
       const claims = verifyJWT(token, jwtSecret);
+      // verify token version against DB
+      const user = await db.getUserById(claims.sub);
+      if (!user || typeof claims.tv !== 'number' || claims.tv !== (user.token_version || 0)) {
+        try { res.clearCookie(tokenCookieName); } catch (_) {}
+        return res.status(401).json({ error: 'Invalid token' });
+      }
       req.user = { id: claims.sub, username: claims.username };
       req.device_id = claims.device_id;
       // ensure device still exists (revoked device should not access)
@@ -71,7 +78,7 @@ function createApiRouter(options) {
       await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '');
       const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
       const expiresSec = days > 0 ? days * 24 * 60 * 60 : null;
-      const token = signJWT({ sub: user.id, username: user.username, device_id: deviceId }, jwtSecret, expiresSec);
+      const token = signJWT({ sub: user.id, username: user.username, device_id: deviceId, tv: user.token_version || 0 }, jwtSecret, expiresSec);
       const cookieOpts = { httpOnly: true, sameSite: 'lax' };
       if (days > 0) cookieOpts.maxAge = expiresSec * 1000;
       res.cookie(tokenCookieName, token, cookieOpts);
@@ -85,7 +92,7 @@ function createApiRouter(options) {
 
   router.post('/logout', requireAuth, async (req, res) => {
     try {
-      res.clearCookie(tokenCookieName);
+      res.clearCookie(tokenCookieName, { httpOnly: true, sameSite: 'lax' });
       logger.info('logout', { device_id: req.device_id });
       res.json({ ok: true });
     } catch (err) {
@@ -205,14 +212,11 @@ function createApiRouter(options) {
         return res.status(400).json({ error: '没有变更内容' });
       }
       const updated = await db.updateUserAuth(user.id, updates);
-      // Issue new token with possibly new username
-      const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
-      const expiresSec = days > 0 ? days * 24 * 60 * 60 : null;
-      const token = signJWT({ sub: updated.id, username: updated.username, device_id: req.device_id }, jwtSecret, expiresSec);
-      const cookieOpts = { httpOnly: true, sameSite: 'lax' };
-      if (days > 0) cookieOpts.maxAge = expiresSec * 1000;
-      res.cookie(tokenCookieName, token, cookieOpts);
-      res.json({ ok: true, user: { username: updated.username, needsPasswordChange: !!updated.is_default_password } });
+      // Do NOT reissue token. Force logout by clearing cookie and kicking WS sessions.
+      try { res.clearCookie(tokenCookieName, { httpOnly: true, sameSite: 'lax', path: '/' }); } catch (_) {}
+      // Immediately kick all online WS connections for this user (including current device)
+      try { if (typeof kickUserSessions === 'function') kickUserSessions(updated.id); } catch (_) {}
+      res.json({ ok: true, loggedOut: true });
     } catch (err) {
       logger.error('admin.user.error', { err });
       res.status(500).json({ error: '更新用户失败' });
@@ -235,6 +239,10 @@ function createApiRouter(options) {
       }
       await db.deleteDevice(deviceId);
       try { if (typeof kickDevice === 'function') kickDevice(deviceId); } catch (_) {}
+      // If deleting current device, clear cookie immediately
+      if (deviceId === req.device_id) {
+        try { res.clearCookie(tokenCookieName, { httpOnly: true, sameSite: 'lax', path: '/' }); } catch (_) {}
+      }
       logger.info('admin.device.delete', { device_id: deviceId, remove_messages: !!removeMessages });
       res.json({ ok: true });
     } catch (err) {

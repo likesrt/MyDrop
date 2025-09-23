@@ -1,3 +1,4 @@
+// moved to templates/index.js
 (() => {
   const qs = (sel, el = document) => el.querySelector(sel);
   const qsa = (sel, el = document) => Array.from(el.querySelectorAll(sel));
@@ -12,6 +13,7 @@
     _dndBound: false,
     _pasteBound: false,
     _resizeBound: false,
+    _copyBound: false,
   };
 
   function uuid() {
@@ -66,22 +68,22 @@
   function renderLogin() {
     return `
       <div class="flex-1 flex items-center justify-center p-4">
-        <div class="bg-white shadow rounded-lg p-6 w-full max-w-sm">
+        <div id="loginCard" class="bg-white shadow rounded p-6 w-full max-w-sm">
           <h1 class="text-xl font-semibold mb-4">登录</h1>
           <form id="loginForm" class="space-y-4">
             <div>
               <label class="block text-sm text-slate-600 mb-1">用户名</label>
-              <input name="username" class="w-full border rounded px-3 py-2" value="admin" />
+              <input id="loginUsername" name="username" class="w-full border rounded px-3 py-2" value="admin" />
             </div>
             <div>
               <label class="block text-sm text-slate-600 mb-1">密码</label>
-              <input name="password" type="password" class="w-full border rounded px-3 py-2" value="admin" />
+              <input id="loginPassword" name="password" type="password" class="w-full border rounded px-3 py-2" value="admin" />
             </div>
             <div>
               <label class="block text-sm text-slate-600 mb-1">设备别名（可选）</label>
-              <input name="alias" class="w-full border rounded px-3 py-2" placeholder="例如：办公室电脑" />
+              <input id="loginAlias" name="alias" class="w-full border rounded px-3 py-2" placeholder="例如：办公室电脑" />
             </div>
-            <button class="w-full bg-slate-900 text-white rounded py-2 hover:bg-slate-800">登录</button>
+            <button id="loginSubmitBtn" class="w-full bg-slate-900 text-white rounded py-2 hover:bg-slate-800">登录</button>
             <p class="text-xs text-slate-500 mt-2">单用户（admin/admin），多个设备互相聊天</p>
           </form>
         </div>
@@ -120,17 +122,21 @@
     const lastMsg = (state.messages || [])[msgCount - 1];
     const lastMsgTime = lastMsg ? new Date(lastMsg.created_at).toLocaleString() : '—';
     return `
-      <header class="border-b bg-white/90 backdrop-blur px-4 py-3 flex items-center justify-between sticky top-0 z-10 anim-fadeInDown" style="animation-delay:.05s">
-        <div class="font-semibold flex items-center gap-2">
-          <svg class="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M3 12h18M3 18h18"/></svg>
+      <header id="mainHeader" class="border-b bg-white/90 backdrop-blur px-4 py-3 flex items-center justify-between sticky top-0 z-10 anim-fadeInDown" style="animation-delay:.05s">
+        <div id="brandTitle" class="font-semibold flex items-center gap-2">
           <span>MyDrop</span>
         </div>
-        <div class="flex items-center gap-3">
+        <div id="headerActions" class="flex items-center gap-3">
           <div class="text-sm text-slate-600">本设备：<span class="font-medium">${deviceLabel(state.me.device)}</span></div>
           <button id="aliasBtn" class="btn pressable text-xs">设备名称</button>
-          <a href="/admin.html" class="inline-flex items-center justify-center w-9 h-9 border rounded hover:bg-slate-50 btn pressable" title="设置" aria-label="设置">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317a1.5 1.5 0 012.35 0l.334.446a1.5 1.5 0 001.64.555l.528-.142a1.5 1.5 0 011.828 1.06l.142.528a1.5 1.5 0 00.555 1.64l.446.334a1.5 1.5 0 010 2.35l-.446.334a1.5 1.5 0 00-.555 1.64l.142.528a1.5 1.5 0 01-1.06 1.828l-.528.142a1.5 1.5 0 00-1.64.555l-.334.446a1.5 1.5 0 01-2.35 0l-.334-.446a1.5 1.5 0 00-1.64-.555l-.528.142a1.5 1.5 0 01-1.828-1.06l-.142-.528a1.5 1.5 0 00-.555-1.64l-.446-.334a1.5 1.5 0 010-2.35l.446-.334a1.5 1.5 0 00.555-1.64l-.142-.528A1.5 1.5 0 017.795 5.176l.528.142a1.5 1.5 0 001.64-.555l.334-.446z"/><circle cx="12" cy="12" r="3"/></svg>
-          </a>
+
+          <a id="settingsBtn" href="/admin.html" class="inline-flex items-center justify-center w-9 h-9 border rounded hover:bg-slate-50 btn pressable" title="设置" aria-label="设置" style="line-height: 1;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" class="w-6 h-6 flex-shrink-0" fill="currentColor" style="display: block;">
+            <path d="M904.533333 422.4l-85.333333-14.933333-17.066667-38.4 49.066667-70.4c14.933333-21.333333 12.8-49.066667-6.4-68.266667l-53.333333-53.333333c-19.2-19.2-46.933333-21.333333-68.266667-6.4l-70.4 49.066666-38.4-17.066666-14.933333-85.333334c-2.133333-23.466667-23.466667-42.666667-49.066667-42.666666h-74.666667c-25.6 0-46.933333 19.2-53.333333 44.8l-14.933333 85.333333-38.4 17.066667L296.533333 170.666667c-21.333333-14.933333-49.066667-12.8-68.266666 6.4l-53.333334 53.333333c-19.2 19.2-21.333333 46.933333-6.4 68.266667l49.066667 70.4-17.066667 38.4-85.333333 14.933333c-21.333333 4.266667-40.533333 25.6-40.533333 51.2v74.666667c0 25.6 19.2 46.933333 44.8 53.333333l85.333333 14.933333 17.066667 38.4L170.666667 727.466667c-14.933333 21.333333-12.8 49.066667 6.4 68.266666l53.333333 53.333334c19.2 19.2 46.933333 21.333333 68.266667 6.4l70.4-49.066667 38.4 17.066667 14.933333 85.333333c4.266667 25.6 25.6 44.8 53.333333 44.8h74.666667c25.6 0 46.933333-19.2 53.333333-44.8l14.933334-85.333333 38.4-17.066667 70.4 49.066667c21.333333 14.933333 49.066667 12.8 68.266666-6.4l53.333334-53.333334c19.2-19.2 21.333333-46.933333 6.4-68.266666l-49.066667-70.4 17.066667-38.4 85.333333-14.933334c25.6-4.266667 44.8-25.6 44.8-53.333333v-74.666667c-4.266667-27.733333-23.466667-49.066667-49.066667-53.333333z m-19.2 117.333333l-93.866666 17.066667c-10.666667 2.133333-19.2 8.533333-23.466667 19.2l-29.866667 70.4c-4.266667 10.666667-2.133333 21.333333 4.266667 29.866667l53.333333 76.8-40.533333 40.533333-76.8-53.333333c-8.533333-6.4-21.333333-8.533333-29.866667-4.266667L576 768c-10.666667 4.266667-17.066667 12.8-19.2 23.466667l-17.066667 93.866666h-57.6l-17.066666-93.866666c-2.133333-10.666667-8.533333-19.2-19.2-23.466667l-70.4-29.866667c-10.666667-4.266667-21.333333-2.133333-29.866667 4.266667l-76.8 53.333333-40.533333-40.533333 53.333333-76.8c6.4-8.533333 8.533333-21.333333 4.266667-29.866667L256 576c-4.266667-10.666667-12.8-17.066667-23.466667-19.2l-93.866666-17.066667v-57.6l93.866666-17.066666c10.666667-2.133333 19.2-8.533333 23.466667-19.2l29.866667-70.4c4.266667-10.666667 2.133333-21.333333-4.266667-29.866667l-53.333333-76.8 40.533333-40.533333 76.8 53.333333c8.533333 6.4 21.333333 8.533333 29.866667 4.266667L448 256c10.666667-4.266667 17.066667-12.8 19.2-23.466667l17.066667-93.866666h57.6l17.066666 93.866666c2.133333 10.666667 8.533333 19.2 19.2 23.466667l70.4 29.866667c10.666667 4.266667 21.333333 2.133333 29.866667-4.266667l76.8-53.333333 40.533333 40.533333-53.333333 76.8c-6.4 8.533333-8.533333 21.333333-4.266667 29.866667L768 448c4.266667 10.666667 12.8 17.066667 23.466667 19.2l93.866666 17.066667v55.466666z"/>
+            <path d="M512 394.666667c-64 0-117.333333 53.333333-117.333333 117.333333s53.333333 117.333333 117.333333 117.333333 117.333333-53.333333 117.333333-117.333333-53.333333-117.333333-117.333333-117.333333z m0 170.666666c-29.866667 0-53.333333-23.466667-53.333333-53.333333s23.466667-53.333333 53.333333-53.333333 53.333333 23.466667 53.333333 53.333333-23.466667 53.333333-53.333333 53.333333z"/>
+          </svg>
+        </a>
+        
           <button id="logoutBtn" class="text-sm link">退出</button>
         </div>
       </header>
@@ -141,16 +147,16 @@
           </div>
         </div>
         <form id="composer" class="fixed bottom-0 left-0 right-0 z-10 border-t bg-white/95 backdrop-blur p-3 pb-safe flex flex-col gap-2">
-          <div class="flex gap-2 items-end">
+          <div id="composerRow" class="flex gap-2 items-end">
             <textarea id="textInput" rows="1" class="flex-1 border rounded px-3 py-2 resize-none max-h-40 overflow-auto" placeholder="输入消息... (Enter 换行, Ctrl+Enter 发送)"></textarea>
-            <label class="shrink-0 inline-flex items-center justify-center w-10 h-10 border rounded cursor-pointer bg-slate-50 hover:bg-slate-100 select-none" title="添加文件" aria-label="添加文件">
+            <label id="fileBtn" class="shrink-0 inline-flex items-center justify-center w-10 h-10 border rounded cursor-pointer bg-slate-50 hover:bg-slate-100 select-none" title="添加文件" aria-label="添加文件">
               <input id="fileInput" type="file" class="hidden" multiple />
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20.5 12.5l-7.778 7.778a5.5 5.5 0 11-7.778-7.778L12.5 5.222a3.5 3.5 0 114.95 4.95L9.672 17.95a1.5 1.5 0 11-2.122-2.122L14.56 8.818"/></svg>
             </label>
             <button type="button" id="fsEditBtn" class="shrink-0 inline-flex items-center justify-center w-10 h-10 border rounded hover:bg-slate-50" title="全屏编辑" aria-label="全屏编辑">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
             </button>
-            <button class="btn btn-primary pressable shrink-0 px-4">发送</button>
+            <button id="sendBtn" class="btn btn-primary pressable shrink-0 px-4">发送</button>
           </div>
           <div id="selectedFiles" class="text-xs text-slate-600"></div>
           <div class="text-xs text-slate-500">单个文件上限：${state.config.fileSizeLimitMB}MB；全局最多 ${state.config.maxFiles} 个文件</div>
@@ -180,11 +186,14 @@
     const textHTML = renderMarkdownWithCards(m.text || '');
     const fileBlocks = renderFilePreviews(m.files || []);
     return `
-      <div class="w-full flex ${row}">
-        <div class="max-w-[80%] flex flex-col ${align}">
+      <div class="w-full flex ${row}" id="message-${m.id}">
+        <div class="max-w-[80%] min-w-0 flex flex-col ${align}">
           <div class="${bubbleCls} text-sm leading-relaxed ${opts.tight ? 'mt-0.5' : ''}">
             ${textHTML}
             ${fileBlocks}
+            <div class="mt-2 flex items-center justify-end">
+              <button class="text-[11px] text-slate-500 hover:text-slate-700 underline" data-copy-mid="${m.id}" title="复制文本">复制</button>
+            </div>
           </div>
           ${opts.showMeta ? `<div class="text-[11px] text-slate-400 mt-1">${escapeHTML(name)} · ${time}</div>` : ''}
         </div>
@@ -197,68 +206,67 @@
     return String(id).slice(0, 4) + '…' + String(id).slice(-4);
   }
 
-  function renderMarkdownWithCards(text) {
+  let __md = null;
+  function getMarkdownRenderer() {
+    if (__md) return __md;
+    if (window.markdownit) {
+      __md = window.markdownit({
+        html: false,
+        linkify: false,
+        breaks: true,
+        highlight: function (str, lang) {
+          try {
+            if (lang && window.hljs?.getLanguage(lang)) {
+              return window.hljs.highlight(str, { language: lang }).value;
+            }
+            return window.hljs?.highlightAuto ? window.hljs.highlightAuto(str).value : str;
+          } catch (_) { return str; }
+        }
+      });
+      return __md;
+    }
+    return null;
+  }
+
+  function renderWithMarked(text) {
     try {
-      if (!window.marked || !window.DOMPurify || !window.hljs) return escapeHTML(text).replace(/\n/g, '<br/>');
-      // Configure marked + code highlight
+      if (!window.marked) return null;
       window.marked.setOptions({
         gfm: true,
         breaks: true,
         highlight: function(code, lang) {
           try {
-            if (lang && window.hljs.getLanguage(lang)) {
+            if (lang && window.hljs?.getLanguage(lang)) {
               return window.hljs.highlight(code, { language: lang }).value;
             }
-            return window.hljs.highlightAuto(code).value;
+            return window.hljs?.highlightAuto ? window.hljs.highlightAuto(code).value : code;
           } catch (_) { return code; }
         }
       });
-      // 保持原始文本格式，不在文本内改写为链接
-      let raw = window.marked.parse(text);
-      // Sanitize and tweak links
-      // force external links open new tab
+      return window.marked.parse(text || '');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function renderMarkdownWithCards(text) {
+    try {
+      const md = getMarkdownRenderer();
+      let raw = md ? md.render(text || '') : null;
+      if (!raw) raw = renderWithMarked(text);
+      if (!raw || !window.DOMPurify) return escapeHTML(text).replace(/\n/g, '<br/>');
+      // external links open new tab
       raw = raw.replace(/<a\s+/g, '<a target="_blank" rel="noreferrer noopener" ');
       const clean = window.DOMPurify.sanitize(raw, { ALLOWED_ATTR: ['href','title','target','rel','src','alt','class'] });
-      const html = `<div class="md-body">${clean}</div>`;
-      // Extract URLs for simple cards
-      const urls = extractUrls(text);
-      const cards = urls.length ? `<div class="mt-2 space-y-2">${urls.map(renderUrlCard).join('')}</div>` : '';
-      return html + cards;
+      const html = `<div class=\"md-body\">${clean}</div>`;
+      
+      return html;
     } catch (_) {
       return escapeHTML(text).replace(/\n/g, '<br/>');
     }
   }
 
-  function urlRegex() {
-    return /(https?:\/\/[^\s<>"]+)/g;
-  }
-  function extractUrls(text) {
-    const r = urlRegex();
-    const found = [];
-    let m;
-    while ((m = r.exec(text)) !== null) {
-      let u = m[1];
-      // trim trailing punctuation
-      u = u.replace(/[),.;!?]+$/, '');
-      found.push(u);
-    }
-    return Array.from(new Set(found));
-  }
-  function renderUrlCard(url) {
-    try {
-      const u = new URL(url);
-      const host = u.host;
-      const path = u.pathname + (u.search || '');
-      return `
-        <a class="block border rounded-lg p-3 bg-white text-slate-800 no-underline hover:bg-slate-50" href="${url}" target="_blank" rel="noreferrer noopener">
-          <div class="text-sm font-medium truncate">${escapeHTML(host)}</div>
-          <div class="text-xs text-slate-500 truncate">${escapeHTML(path || '/')}</div>
-        </a>
-      `;
-    } catch {
-      return `<a class="underline break-all" href="${url}" target="_blank" rel="noreferrer noopener">${url}</a>`;
-    }
-  }
+  // 链接卡片相关逻辑已移除
 
   function renderFilePreviews(files) {
     if (!files.length) return '';
@@ -268,7 +276,7 @@
       if (isImage(f)) {
         return `
           <div class="mt-2">
-            <img src="${url}" alt="${escapeHTML(f.original_name)}" class="max-h-64 rounded-lg object-contain" />
+            <img src="${url}" alt="${escapeHTML(f.original_name)}" class="max-h-64 rounded object-contain" />
             <div class="text-xs mt-1"><a class="underline" href="${downloadUrl}" target="_blank">下载 (${escapeHTML(f.original_name)})</a></div>
           </div>
         `;
@@ -276,7 +284,7 @@
       if (isVideo(f)) {
         return `
           <div class="mt-2">
-            <video class="max-h-64 rounded-lg" src="${url}" controls playsinline></video>
+            <video class="max-h-64 rounded" src="${url}" controls playsinline></video>
             <div class="text-xs mt-1"><a class="underline" href="${downloadUrl}" target="_blank">下载 (${escapeHTML(f.original_name)})</a></div>
           </div>
         `;
@@ -422,10 +430,11 @@
       window.addEventListener('orientationchange', () => setTimeout(scrollToBottom, 300));
     }
 
-    // 修改设备别名
+    // 修改设备别名（自定义弹窗）
     qs('#aliasBtn').addEventListener('click', async () => {
       const current = state.me?.device?.alias || '';
-      const alias = prompt('设置设备别名：', current) || '';
+      const alias = await showPrompt('设置设备别名：', current);
+      if (alias === null) return; // cancelled
       try {
         const res = await api('/device/alias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ alias }) });
         state.me.device = res.device;
@@ -470,6 +479,47 @@
 
     // 全屏编辑器
     qs('#fsEditBtn').addEventListener('click', () => openFullscreenEditor(textInput.value));
+
+    // 全局复制按钮事件（事件委托）
+    if (!state._copyBound) {
+      state._copyBound = true;
+      document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-copy-mid]');
+        if (!btn) return;
+        e.preventDefault();
+        const id = parseInt(btn.getAttribute('data-copy-mid'), 10);
+        const msg = state.messages.find(x => x.id === id);
+        const text = (msg?.text || '').toString();
+        if (!text) { toast('无可复制文本', 'warn'); return; }
+        try {
+          await copyToClipboard(text);
+          toast('已复制', 'success');
+        } catch (_) {
+          toast('复制失败', 'error');
+        }
+      });
+    }
+  }
+
+  async function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    // 兼容回退
+    return new Promise((resolve, reject) => {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.setAttribute('readonly', '');
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok ? resolve() : reject(new Error('execCommand copy failed'));
+      } catch (err) { reject(err); }
+    });
   }
 
   function openFullscreenEditor(initialText = '') {
@@ -477,11 +527,28 @@
     overlay.id = 'fs-editor';
     overlay.className = 'fixed inset-0 z-50 bg-white flex flex-col';
     overlay.innerHTML = `
-      <header class="p-3 border-b flex items-center justify-between">
-        <div class="font-medium">Markdown 全屏编辑</div>
-        <div class="flex items-center gap-2">
-          <button id="fsSend" class="bg-slate-900 text-white rounded px-3 py-1.5 hover:bg-slate-800">发送 (Ctrl+Enter)</button>
-          <button id="fsClose" class="border rounded px-3 py-1.5 hover:bg-slate-50">关闭 (Esc)</button>
+      <header class="p-3 border-b">
+        <div class="flex items-center justify-between">
+          <div class="font-medium">Markdown 全屏编辑</div>
+          <div class="flex items-center gap-2">
+            <button id=\"fsSend\" class=\"btn btn-primary pressable\">发送 (Ctrl+Enter)</button>
+            <button id=\"fsClose\" class=\"btn pressable\">关闭 (Esc)</button>
+          </div>
+        </div>
+        <div id=\"mdToolbar\" class=\"mt-2 flex flex-wrap items-center gap-1\">
+          <button data-tool=\"bold\" class=\"btn pressable\" title=\"粗体 (Ctrl+B)\"><b>B</b></button>
+          <button data-tool=\"italic\" class=\"btn pressable\" title=\"斜体 (Ctrl+I)\"><i>I</i></button>
+          <button data-tool=\"h1\" class=\"btn pressable\" title=\"标题 H1\">H1</button>
+          <button data-tool=\"h2\" class=\"btn pressable\" title=\"标题 H2\">H2</button>
+          <button data-tool=\"ul\" class=\"btn pressable\" title=\"无序列表\">• List</button>
+          <button data-tool=\"ol\" class=\"btn pressable\" title=\"有序列表\">1. List</button>
+          <button data-tool=\"task\" class=\"btn pressable\" title=\"任务列表\">[ ] Task</button>
+          <button data-tool=\"quote\" class=\"btn pressable\" title=\"引用\">“”</button>
+          <button data-tool=\"code\" class=\"btn pressable\" title=\"行内代码\">\`code\`</button>
+          <button data-tool=\"codeblock\" class=\"btn pressable\" title=\"代码块\">Code Block</button>
+          <button data-tool=\"link\" class=\"btn pressable\" title=\"插入链接\">Link</button>
+          <button data-tool=\"image\" class=\"btn pressable\" title=\"插入图片\">Image</button>
+          <button data-tool=\"hr\" class=\"btn pressable\" title=\"分割线\">―</button>
         </div>
       </header>
       <div class="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2">
@@ -522,6 +589,8 @@
           close();
         }
       }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); applyToolbar('bold', input, update); }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); applyToolbar('italic', input, update); }
     });
     sendBtn.addEventListener('click', () => {
       const mainInput = qs('#textInput');
@@ -531,7 +600,80 @@
         close();
       }
     });
+    overlay.querySelectorAll('#mdToolbar [data-tool]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tool = btn.getAttribute('data-tool');
+        applyToolbar(tool, input, update);
+      });
+    });
     input.focus();
+  }
+
+  function applyToolbar(tool, textarea, onChanged) {
+    const t = textarea;
+    const start = t.selectionStart || 0;
+    const end = t.selectionEnd || 0;
+    const value = t.value || '';
+    const selected = value.slice(start, end);
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    const set = (text, cursorDelta = 0) => {
+      t.value = text;
+      const pos = start + cursorDelta;
+      t.setSelectionRange(pos, pos);
+      t.focus();
+      if (typeof onChanged === 'function') onChanged();
+    };
+    const surround = (prefix, suffix = prefix) => {
+      if (!selected) return set(before + prefix + suffix + after, prefix.length);
+      return set(before + prefix + selected + suffix + after, (prefix + selected + suffix).length);
+    };
+    const lineOperate = (prefix, numbered = false) => {
+      const sel = selected || '';
+      const lines = sel.split('\n');
+      const newLines = lines.map((line, i) => {
+        if (numbered) return `${i + 1}. ${line.replace(/^\d+\.\s*/, '')}`;
+        return `${prefix} ${line.replace(/^(?:[-*+]\s|>\s|\[\]\s|\[[xX]\]\s)?/, '')}`.trimEnd();
+      });
+      const text = before + newLines.join('\n') + after;
+      set(text, (newLines.join('\n')).length);
+    };
+    switch (tool) {
+      case 'bold': return surround('**');
+      case 'italic': return surround('*');
+      case 'h1': return set(before + '# ' + selected + after, (('# ' + selected).length));
+      case 'h2': return set(before + '## ' + selected + after, (('## ' + selected).length));
+      case 'ul': return lineOperate('-');
+      case 'ol': return lineOperate('', true);
+      case 'task': return lineOperate('- [ ]');
+      case 'quote': return lineOperate('>');
+      case 'code': return surround('`');
+      case 'codeblock': {
+        const block = '```\n' + (selected || '') + '\n```\n';
+        const text = before + block + after;
+        return set(text, block.length - 4);
+      }
+      case 'link': {
+        const url = await showPrompt('输入链接地址：', 'https://');
+        if (!url) return;
+        const title = selected || '链接标题';
+        const md = `[${title}](${url})`;
+        return set(before + md + after, (md.length));
+      }
+      case 'image': {
+        const url = await showPrompt('输入图片地址：', 'https://');
+        if (!url) return;
+        const alt = selected || '图片说明';
+        const md = `![${alt}](${url})`;
+        return set(before + md + after, (md.length));
+      }
+      case 'hr': {
+        const md = (before.endsWith('\n') ? '' : '\n') + '---\n';
+        return set(before + md + after, md.length);
+      }
+      default:
+        return;
+    }
   }
 
   function scrollToBottom() {
@@ -572,6 +714,75 @@
       setTimeout(() => div.remove(), 200);
     }
     div.addEventListener('click', close);
+  }
+
+  // 自定义弹窗（Confirm/Prompt）
+  function ensureModalRoot() {
+    let el = qs('#modal-root');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'modal-root';
+      el.className = 'fixed inset-0 z-50 flex items-center justify-center p-3';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  function closeModal(root, overlay) {
+    try { overlay.classList.add('opacity-0'); } catch (_) {}
+    setTimeout(() => { try { root.innerHTML = ''; } catch (_) {} }, 150);
+  }
+  function showConfirm(message, { title = '确认', confirmText = '确定', cancelText = '取消' } = {}) {
+    return new Promise((resolve) => {
+      const root = ensureModalRoot();
+      const overlay = document.createElement('div');
+      overlay.className = 'absolute inset-0 bg-black/30 transition-opacity';
+      const card = document.createElement('div');
+      card.className = 'relative bg-white rounded shadow-lg border w-full max-w-md p-4 space-y-3 anim-fadeIn';
+      card.innerHTML = `
+        <div class="text-base font-medium text-slate-800">${escapeHTML(title)}</div>
+        <div class="text-sm text-slate-700">${escapeHTML(String(message||''))}</div>
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button class="btn pressable" data-act="cancel">${escapeHTML(cancelText)}</button>
+          <button class="btn btn-primary pressable" data-act="ok">${escapeHTML(confirmText)}</button>
+        </div>`;
+      root.innerHTML = '';
+      root.appendChild(overlay);
+      root.appendChild(card);
+      const onCancel = () => { closeModal(root, overlay); resolve(false); };
+      const onOk = () => { closeModal(root, overlay); resolve(true); };
+      card.querySelector('[data-act="cancel"]').addEventListener('click', onCancel);
+      card.querySelector('[data-act="ok"]').addEventListener('click', onOk);
+      const onKey = (e) => { if (e.key === 'Escape') onCancel(); if (e.key === 'Enter') onOk(); };
+      setTimeout(() => document.addEventListener('keydown', onKey, { once: true }), 0);
+      overlay.addEventListener('click', onCancel);
+    });
+  }
+  function showPrompt(message, defaultValue = '') {
+    return new Promise((resolve) => {
+      const root = ensureModalRoot();
+      const overlay = document.createElement('div');
+      overlay.className = 'absolute inset-0 bg-black/30 transition-opacity';
+      const card = document.createElement('div');
+      card.className = 'relative bg-white rounded shadow-lg border w-full max-w-md p-4 space-y-3 anim-fadeIn';
+      card.innerHTML = `
+        <div class="text-base font-medium text-slate-800">${escapeHTML(String(message||''))}</div>
+        <div><input id="_promptInput" class="w-full border rounded px-3 py-2" value="${escapeHTML(String(defaultValue||''))}" /></div>
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button class="btn pressable" data-act="cancel">取消</button>
+          <button class="btn btn-primary pressable" data-act="ok">确定</button>
+        </div>`;
+      root.innerHTML = '';
+      root.appendChild(overlay);
+      root.appendChild(card);
+      const input = card.querySelector('#_promptInput');
+      const onCancel = () => { closeModal(root, overlay); resolve(null); };
+      const onOk = () => { const v = input.value; closeModal(root, overlay); resolve(v); };
+      card.querySelector('[data-act="cancel"]').addEventListener('click', onCancel);
+      card.querySelector('[data-act="ok"]').addEventListener('click', onOk);
+      const onKey = (e) => { if (e.key === 'Escape') onCancel(); if (e.key === 'Enter') onOk(); };
+      setTimeout(() => { input.focus(); input.select(); document.addEventListener('keydown', onKey, { once: true }); }, 0);
+      overlay.addEventListener('click', onCancel);
+    });
   }
 
   async function loadBasics() {

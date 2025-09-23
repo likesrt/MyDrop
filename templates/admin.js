@@ -1,6 +1,8 @@
+// moved to templates/admin.js
 (() => {
   const qs = (s, el = document) => el.querySelector(s);
   const qsa = (s, el = document) => Array.from(el.querySelectorAll(s));
+  let currentDeviceId = null;
 
   async function api(path, opts={}) {
     const res = await fetch(path, opts);
@@ -33,10 +35,53 @@
     setTimeout(() => { div.remove(); }, 3000);
   }
 
+  // 自定义弹窗（与前台一致）
+  function ensureModalRoot() {
+    let el = qs('#modal-root');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'modal-root';
+      el.className = 'fixed inset-0 z-50 flex items-center justify-center p-3';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  function closeModal(root, overlay) {
+    try { overlay.classList.add('opacity-0'); } catch (_) {}
+    setTimeout(() => { try { root.innerHTML = ''; } catch (_) {} }, 150);
+  }
+  function showConfirm(message, { title = '确认', confirmText = '确定', cancelText = '取消' } = {}) {
+    return new Promise((resolve) => {
+      const root = ensureModalRoot();
+      const overlay = document.createElement('div');
+      overlay.className = 'absolute inset-0 bg-black/30 transition-opacity';
+      const card = document.createElement('div');
+      card.className = 'relative bg-white rounded shadow-lg border w-full max-w-md p-4 space-y-3';
+      card.innerHTML = `
+        <div class="text-base font-medium text-slate-800">${String(title)}</div>
+        <div class="text-sm text-slate-700">${String(message)}</div>
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button class="btn pressable" data-act="cancel">${cancelText}</button>
+          <button class="btn btn-primary pressable" data-act="ok">${confirmText}</button>
+        </div>`;
+      root.innerHTML = '';
+      root.appendChild(overlay);
+      root.appendChild(card);
+      const onCancel = () => { closeModal(root, overlay); resolve(false); };
+      const onOk = () => { closeModal(root, overlay); resolve(true); };
+      card.querySelector('[data-act="cancel"]').addEventListener('click', onCancel);
+      card.querySelector('[data-act="ok"]').addEventListener('click', onOk);
+      const onKey = (e) => { if (e.key === 'Escape') onCancel(); if (e.key === 'Enter') onOk(); };
+      setTimeout(() => document.addEventListener('keydown', onKey, { once: true }), 0);
+      overlay.addEventListener('click', onCancel);
+    });
+  }
+
   async function init() {
     try {
       const me = await api('/me');
       qs('#currentUsername').textContent = me.user.username;
+      currentDeviceId = me?.device?.device_id || null;
       const notice = qs('#notice');
       if (me.user.needsPasswordChange) {
         notice.textContent = '检测到您仍在使用默认密码，请尽快修改。';
@@ -67,7 +112,12 @@
         const body = { oldPassword };
         if (username) body.username = username;
         if (password) body.password = password;
-        await api('/admin/user', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const resp = await api('/admin/user', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (resp?.loggedOut) {
+          toast('密码已修改，请重新登录', 'success');
+          setTimeout(() => { location.href = '/'; }, 600);
+          return;
+        }
         toast('保存成功', 'success');
         setTimeout(() => location.reload(), 700);
       } catch (err) {
@@ -164,10 +214,14 @@
       root.innerHTML = list.map(d => {
         const short = (s) => (s ? (String(s).slice(0,4)+'…'+String(s).slice(-4)) : '');
         const last = new Date(d.last_seen_at).toLocaleString();
+        const isCurrent = currentDeviceId && d.device_id === currentDeviceId;
+        const badge = isCurrent
+          ? '<span class="ml-2 inline-block text-[11px] text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5 align-middle">当前设备</span>'
+          : '';
         return `
           <div class="py-3 flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <div class="font-medium text-slate-800">${(d.alias || short(d.device_id) || '未命名设备')}</div>
+              <div class="font-medium text-slate-800">${(d.alias || short(d.device_id) || '未命名设备')}${badge}</div>
               <div class="text-xs text-slate-500">ID：${d.device_id}</div>
               <div class="text-xs text-slate-500">最近活跃：${last}</div>
               <div class="text-xs text-slate-500 truncate">UA：${(d.user_agent || '')}</div>
@@ -181,8 +235,9 @@
       root.querySelectorAll('[data-action="delete"]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const deviceId = btn.getAttribute('data-id');
-          if (!confirm('确认删除该设备？')) return;
-          const also = confirm('是否同时删除该设备相关消息与文件？“确定”删除，“取消”保留');
+          const ok = await showConfirm('确认删除该设备？');
+          if (!ok) return;
+          const also = await showConfirm('是否同时删除该设备相关消息与文件？“确定”删除，“取消”保留');
           try {
             await api('/admin/device/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId, removeMessages: also }) });
             toast('已删除设备' + (also ? '并清理消息' : ''), 'success');
@@ -213,7 +268,7 @@
           const files = (m.files||[]).map(f => `<div class=\"text-xs text-slate-600 flex items-center gap-2\">📎 ${f.original_name} <button class=\"btn pressable\" data-action=\"file-del\" data-id=\"${f.id}\">删除文件</button></div>`).join('');
           const preview = (m.text || '').slice(0, 80).replace(/</g,'&lt;').replace(/>/g,'&gt;');
           return `
-            <div class=\"card p-3\" data-mid=\"${m.id}\">
+            <div class=\"card p-3\" id=\"message-${m.id}\" data-mid=\"${m.id}\">
               <div class=\"flex items-start justify-between gap-3\">
                 <div class=\"min-w-0\">
                   <div class=\"font-medium text-slate-800\">消息 #${m.id} · ${time}</div>
@@ -228,7 +283,8 @@
         // bind actions
         root.querySelectorAll('[data-action="msg-del"]').forEach(b => b.addEventListener('click', async () => {
           const id = parseInt(b.getAttribute('data-id'), 10);
-          if (!confirm(`确认删除消息 #${id}？`)) return;
+          const ok = await showConfirm(`确认删除消息 #${id}？`);
+          if (!ok) return;
           try {
             await api('/admin/message/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messageId: id }) });
             toast('已删除消息', 'success');
@@ -240,7 +296,8 @@
         }));
         root.querySelectorAll('[data-action="file-del"]').forEach(b => b.addEventListener('click', async () => {
           const id = parseInt(b.getAttribute('data-id'), 10);
-          if (!confirm(`确认删除文件 #${id}？`)) return;
+          const ok = await showConfirm(`确认删除文件 #${id}？`);
+          if (!ok) return;
           try {
             await api('/admin/file/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileId: id }) });
             toast('已删除文件', 'success');

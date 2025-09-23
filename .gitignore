@@ -16,6 +16,10 @@ uploads/*
 !uploads/.gitkeep
 logs/
 
+# Built frontend assets
+templates/static/
+public/
+
 # Package manager logs/locks
 npm-debug.log*
 yarn-error.log*

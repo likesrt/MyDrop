@@ -44,24 +44,27 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger(logger));
+// Serve built static assets (Tailwind CSS, vendor libs) under templates/static
+const TEMPLATES_DIR = path.join(__dirname, 'templates');
+app.use('/static', express.static(path.join(TEMPLATES_DIR, 'static')));
 
-// Serve minimal static assets only
+// Serve minimal static assets only (moved under templates)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(TEMPLATES_DIR, 'index.html'));
 });
 app.get('/index.js', (req, res) => {
-  res.type('application/javascript').sendFile(path.join(__dirname, 'index.js'));
+  res.type('application/javascript').sendFile(path.join(TEMPLATES_DIR, 'index.js'));
 });
 app.get('/index.css', (req, res) => {
-  res.type('text/css').sendFile(path.join(__dirname, 'index.css'));
+  res.type('text/css').sendFile(path.join(TEMPLATES_DIR, 'index.css'));
 });
 
 // Serve admin assets
 app.get('/admin.html', (req, res) => {
-  res.type('text/html').sendFile(path.join(__dirname, 'admin.html'));
+  res.type('text/html').sendFile(path.join(TEMPLATES_DIR, 'admin.html'));
 });
 app.get('/admin.js', (req, res) => {
-  res.type('application/javascript').sendFile(path.join(__dirname, 'admin.js'));
+  res.type('application/javascript').sendFile(path.join(TEMPLATES_DIR, 'admin.js'));
 });
 
 // Mount API router (all HTTP endpoints live in api.js)
@@ -77,6 +80,21 @@ function kickDeviceById(deviceId) {
   } catch (_) {}
 }
 
+function kickUserSessions(userId, opts = {}) {
+  const exceptDeviceId = opts.exceptDeviceId || null;
+  try {
+    for (const [token, obj] of clients.entries()) {
+      if (obj?.userId === userId && (!exceptDeviceId || obj.deviceId !== exceptDeviceId)) {
+        if (obj.ws && obj.ws.readyState === WebSocket.OPEN) {
+          try { obj.ws.send(JSON.stringify({ type: 'force-logout', reason: 'password_change' })); } catch (_) {}
+          try { obj.ws.close(); } catch (_) {}
+        }
+        clients.delete(token);
+      }
+    }
+  } catch (_) {}
+}
+
 const apiRouter = createApiRouter({
   tokenCookieName: TOKEN_COOKIE,
   db,
@@ -86,6 +104,7 @@ const apiRouter = createApiRouter({
   jwtSecret: JWT_SECRET,
   jwtExpiresDays: JWT_EXPIRES_DAYS,
   kickDevice: kickDeviceById,
+  kickUserSessions,
 });
 app.use(apiRouter);
 
@@ -119,6 +138,13 @@ wss.on('connection', async (ws, req) => {
   }
   // ensure device still exists
   try {
+    // also ensure token version is still valid for user
+    const user = await db.getUserById(claims.sub);
+    if (!user || typeof claims.tv !== 'number' || claims.tv !== (user.token_version || 0)) {
+      logger.warn('ws.reject', { reason: 'invalid-token-version', user_id: claims.sub });
+      ws.close();
+      return;
+    }
     const device = await db.getDevice(claims.device_id);
     if (!device) {
       logger.warn('ws.reject', { reason: 'device-revoked', device_id: claims.device_id });
@@ -127,7 +153,7 @@ wss.on('connection', async (ws, req) => {
     }
   } catch (_) { ws.close(); return; }
 
-  clients.set(token, { ws, deviceId: claims.device_id });
+  clients.set(token, { ws, deviceId: claims.device_id, userId: claims.sub });
   logger.info('ws.connect', { device_id: claims.device_id });
 
   ws.on('message', async (raw) => {
