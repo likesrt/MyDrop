@@ -172,7 +172,7 @@
   function renderMessage(m, opts = {}) {
     const isMine = state.me?.device?.device_id === m.sender_device_id;
     const row = isMine ? 'justify-end' : 'justify-start';
-    const align = isMine ? 'items-end text-right' : 'items-start text-left';
+    const align = isMine ? 'items-end text-left' : 'items-start text-left';
     let bubbleCls = isMine ? 'bubble bubble-mine bubble-shadow' : 'bubble bubble-other bubble-shadow ring-1 ring-slate-200';
     if (opts.tail) bubbleCls += isMine ? ' bubble-tail-right' : ' bubble-tail-left';
     const name = m.sender?.alias || shortId(m.sender_device_id) || '未命名设备';
@@ -213,9 +213,8 @@
           } catch (_) { return code; }
         }
       });
-      // 预处理：将纯文本 URL 转换为 Markdown 链接，确保可点击
-      const prelinked = (text || '').replace(urlRegex(), (u) => `[${u}](${u})`);
-      let raw = window.marked.parse(prelinked);
+      // 保持原始文本格式，不在文本内改写为链接
+      let raw = window.marked.parse(text);
       // Sanitize and tweak links
       // force external links open new tab
       raw = raw.replace(/<a\s+/g, '<a target="_blank" rel="noreferrer noopener" ');
