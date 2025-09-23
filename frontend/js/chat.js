@@ -215,27 +215,35 @@ function bindChat() {
         // Deduplicate if WS already delivered the saved message
         const dupIdx = window.MyDropState.messages.findIndex((m, i) => i !== idx && String(m.id) === String(saved.id));
         if (dupIdx >= 0) {
-          // Remove optimistic entry and keep the server-delivered one
+          // Remove optimistic entry and keep the server-delivered one (from WS)
           window.MyDropState.messages.splice(idx, 1);
+          try { const el = document.querySelector('#message-' + CSS.escape(tempId)); if (el) el.remove(); } catch (_) {}
+          // Re-render neighbor before the removed slot to fix grouping
+          try {
+            if (idx - 1 >= 0) {
+              const prevHtml = await window.MyDropRender.renderMessageWithGrouping(idx - 1);
+              const prevOld = document.querySelector('#message-' + window.MyDropState.messages[idx - 1].id);
+              const t = document.createElement('div'); t.innerHTML = prevHtml; const prevNode = t.firstElementChild; if (prevNode && prevOld) prevOld.replaceWith(prevNode);
+            }
+          } catch (_) {}
         } else {
+          // Replace optimistic in place
           window.MyDropState.messages[idx] = saved;
+          try {
+            const prevHtml = (idx - 1 >= 0) ? await window.MyDropRender.renderMessageWithGrouping(idx - 1) : null;
+            const currHtml = await window.MyDropRender.renderMessageWithGrouping(idx);
+            if (prevHtml) {
+              const t = document.createElement('div'); t.innerHTML = prevHtml; const prevNode = t.firstElementChild;
+              const prevOld = document.querySelector('#message-' + window.MyDropState.messages[idx - 1]?.id);
+              if (prevNode && prevOld) prevOld.replaceWith(prevNode);
+            }
+            const oldNode = document.querySelector('#message-' + CSS.escape(tempId));
+            if (currHtml && oldNode) {
+              const t2 = document.createElement('div'); t2.innerHTML = currHtml; const newNode = t2.firstElementChild;
+              if (newNode) oldNode.replaceWith(newNode);
+            }
+          } catch (_) { try { await window.MyDropApp.render(); } catch (_) {} }
         }
-        try {
-          const prevHtml = (idx - 1 >= 0) ? await window.MyDropRender.renderMessageWithGrouping(idx - 1) : null;
-          const currIdx = window.MyDropState.messages.findIndex(m => String(m.id) === String(saved.id));
-          const currHtml = await window.MyDropRender.renderMessageWithGrouping(currIdx);
-          const list = document.querySelector('#messageList');
-          const oldNode = document.querySelector('#message-' + CSS.escape(tempId)) || document.querySelector('#message-' + CSS.escape(String(saved.id)));
-          if (prevHtml) {
-            const t = document.createElement('div'); t.innerHTML = prevHtml; const prevNode = t.firstElementChild;
-            const prevOld = document.querySelector('#message-' + window.MyDropState.messages[currIdx - 1]?.id);
-            if (prevNode && prevOld) prevOld.replaceWith(prevNode);
-          }
-          if (currHtml && oldNode) {
-            const t2 = document.createElement('div'); t2.innerHTML = currHtml; const newNode = t2.firstElementChild;
-            if (newNode) oldNode.replaceWith(newNode);
-          }
-        } catch (_) { try { await window.MyDropApp.render(); } catch (_) {} }
       }
 
       // Reset inputs

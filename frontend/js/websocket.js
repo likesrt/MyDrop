@@ -48,7 +48,34 @@ function openWS() {
       }
       if (msg.type === 'message') {
         const incoming = msg.data;
-        if (!window.MyDropState.messages.some(m => m.id === incoming.id)) {
+        // If an optimistic temp message exists for my own send, replace it instead of pushing
+        try {
+          const myDid = window.MyDropState?.me?.device?.device_id || null;
+          if (myDid && incoming.sender_device_id === myDid) {
+            const tmpIdx = window.MyDropState.messages.findIndex(m => typeof m.id === 'string' && m.id.startsWith('tmp-') && (m.text || '') === (incoming.text || ''));
+            if (tmpIdx >= 0) {
+              const tmpId = window.MyDropState.messages[tmpIdx].id;
+              window.MyDropState.messages[tmpIdx] = incoming;
+              try {
+                const prevHtml = (tmpIdx - 1 >= 0) ? await window.MyDropRender.renderMessageWithGrouping(tmpIdx - 1) : null;
+                const currHtml = await window.MyDropRender.renderMessageWithGrouping(tmpIdx);
+                if (prevHtml) {
+                  const t = document.createElement('div'); t.innerHTML = prevHtml; const prevNode = t.firstElementChild;
+                  const prevOld = document.querySelector('#message-' + window.MyDropState.messages[tmpIdx - 1]?.id);
+                  if (prevNode && prevOld) prevOld.replaceWith(prevNode);
+                }
+                const tempEl = document.querySelector('#message-' + CSS.escape(String(tmpId)));
+                if (currHtml && tempEl) {
+                  const t2 = document.createElement('div'); t2.innerHTML = currHtml; const newNode = t2.firstElementChild;
+                  if (newNode) tempEl.replaceWith(newNode);
+                }
+              } catch (_) { try { await window.MyDropApp.render(); } catch (_) {} }
+              return;
+            }
+          }
+        } catch (_) {}
+
+        if (!window.MyDropState.messages.some(m => String(m.id) === String(incoming.id))) {
           window.MyDropState.messages.push(incoming);
           await window.MyDropChat.appendMessageToList(incoming);
         }
