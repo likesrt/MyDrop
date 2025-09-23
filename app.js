@@ -23,6 +23,7 @@ const FILE_SIZE_LIMIT_MB = process.env.FILE_SIZE_LIMIT_MB ? parseInt(process.env
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const JWT_EXPIRES_DAYS = process.env.JWT_EXPIRES_DAYS ? parseInt(process.env.JWT_EXPIRES_DAYS, 10) : 7;
+const HEADER_AUTO_HIDE = /^(1|true|yes)$/i.test(process.env.HEADER_AUTO_HIDE || '');
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -112,6 +113,7 @@ const apiRouter = createApiRouter({
   jwtExpiresDays: JWT_EXPIRES_DAYS,
   kickDevice: kickDeviceById,
   kickUserSessions,
+  features: { autoHideHeader: HEADER_AUTO_HIDE },
 });
 app.use(apiRouter);
 

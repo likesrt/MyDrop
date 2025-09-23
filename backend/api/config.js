@@ -1,14 +1,15 @@
 const express = require('express');
 
 function createConfigRouter(options) {
-  const { limits } = options;
+  const { limits, features = {} } = options;
   const router = express.Router();
 
   // Public config endpoint
   router.get('/config', (req, res) => {
     res.json({
       maxFiles: limits.maxFiles,
-      fileSizeLimitMB: limits.fileSizeLimitMB
+      fileSizeLimitMB: limits.fileSizeLimitMB,
+      headerAutoHide: !!features.autoHideHeader,
     });
   });
 
