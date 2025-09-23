@@ -8,6 +8,7 @@
     messages: [],
     ws: null,
     config: { maxFiles: 10, fileSizeLimitMB: 5 },
+    shownPwdPrompt: false,
   };
 
   function uuid() {
@@ -107,6 +108,9 @@
         <div class="flex items-center gap-3">
           <div class="text-sm text-slate-600">本设备：<span class="font-medium">${deviceLabel(state.me.device)}</span></div>
           <button id="aliasBtn" class="text-xs px-2 py-1 border rounded hover:bg-slate-50">设备名称</button>
+          <a href="/admin.html" class="inline-flex items-center justify-center w-9 h-9 border rounded hover:bg-slate-50" title="设置" aria-label="设置">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M10.325 4.317a1.5 1.5 0 012.35 0l.334.446a1.5 1.5 0 001.64.555l.528-.142a1.5 1.5 0 011.828 1.06l.142.528a1.5 1.5 0 00.555 1.64l.446.334a1.5 1.5 0 010 2.35l-.446.334a1.5 1.5 0 00-.555 1.64l.142.528a1.5 1.5 0 01-1.06 1.828l-.528.142a1.5 1.5 0 00-1.64.555l-.334.446a1.5 1.5 0 01-2.35 0l-.334-.446a1.5 1.5 0 00-1.64-.555l-.528.142a1.5 1.5 0 01-1.828-1.06l-.142-.528a1.5 1.5 0 00-.555-1.64l-.446-.334a1.5 1.5 0 010-2.35l.446-.334a1.5 1.5 0 00.555-1.64l-.142-.528A1.5 1.5 0 017.795 5.176l.528.142a1.5 1.5 0 001.64-.555l.334-.446z"/><circle cx="12" cy="12" r="3"/></svg>
+          </a>
           <button id="logoutBtn" class="text-sm text-slate-700 hover:text-black">退出</button>
         </div>
       </header>
@@ -482,6 +486,10 @@
     state.me = me;
     const devices = await api('/devices');
     state.devices = devices.devices || [];
+    if (me?.user?.needsPasswordChange && !state.shownPwdPrompt) {
+      state.shownPwdPrompt = true;
+      toast('您仍在使用默认密码，请前往“设置”修改。', 'warn');
+    }
   }
 
   async function loadInitialMessages() {

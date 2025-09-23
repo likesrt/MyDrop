@@ -4,15 +4,17 @@ const express = require('express');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { logger } = require('./logger');
+const { signJWT, verifyJWT, verifyPassword, hashPassword } = require('./auth');
 
 function createApiRouter(options) {
   const {
-    auth, // { username, password }
-    sessionCookieName,
+    tokenCookieName,
     db,
     uploadDir,
     limits, // { maxFiles, fileSizeLimitMB }
     broadcast, // function(message)
+    jwtSecret,
+    jwtExpiresDays,
   } = options;
 
   const router = express.Router();
@@ -30,12 +32,16 @@ function createApiRouter(options) {
 
   // Auth middleware
   async function requireAuth(req, res, next) {
-    const sid = req.cookies?.[sessionCookieName];
-    if (!sid) return res.status(401).json({ error: 'Not authenticated' });
-    const session = await db.getSession(sid);
-    if (!session) return res.status(401).json({ error: 'Invalid session' });
-    req.session = session;
-    next();
+    try {
+      const token = req.cookies?.[tokenCookieName] || (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
+      if (!token) return res.status(401).json({ error: 'Not authenticated' });
+      const claims = verifyJWT(token, jwtSecret);
+      req.user = { id: claims.sub, username: claims.username };
+      req.device_id = claims.device_id;
+      next();
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
   }
 
   // Config (public)
@@ -47,17 +53,22 @@ function createApiRouter(options) {
   router.post('/login', async (req, res) => {
     try {
       const { username, password, deviceId, alias } = req.body || {};
-      if (username !== auth.username || password !== auth.password) {
+      if (!username || !password) return res.status(400).json({ error: 'Missing credentials' });
+      if (!deviceId) return res.status(400).json({ error: 'Missing deviceId' });
+      const user = await db.getUserByUsername(username);
+      if (!user || !verifyPassword(password, user.password_hash)) {
         logger.warn('login.failed', { username: username || '', ip: req.ip });
         return res.status(401).json({ error: 'Invalid credentials' });
       }
-      if (!deviceId) return res.status(400).json({ error: 'Missing deviceId' });
       await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '');
-      const sid = uuidv4();
-      await db.createSession(sid, deviceId);
-      res.cookie(sessionCookieName, sid, { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000 });
+      const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
+      const expiresSec = days > 0 ? days * 24 * 60 * 60 : null;
+      const token = signJWT({ sub: user.id, username: user.username, device_id: deviceId }, jwtSecret, expiresSec);
+      const cookieOpts = { httpOnly: true, sameSite: 'lax' };
+      if (days > 0) cookieOpts.maxAge = expiresSec * 1000;
+      res.cookie(tokenCookieName, token, cookieOpts);
       logger.info('login.success', { device_id: deviceId, alias: alias || '', ip: req.ip });
-      res.json({ ok: true });
+      res.json({ ok: true, needsPasswordChange: !!user.is_default_password });
     } catch (err) {
       logger.error('login.error', { err });
       res.status(500).json({ error: 'Login failed' });
@@ -66,9 +77,8 @@ function createApiRouter(options) {
 
   router.post('/logout', requireAuth, async (req, res) => {
     try {
-      if (req.session) await db.deleteSession(req.session.id);
-      res.clearCookie(sessionCookieName);
-      logger.info('logout', { device_id: req.session?.device_id });
+      res.clearCookie(tokenCookieName);
+      logger.info('logout', { device_id: req.device_id });
       res.json({ ok: true });
     } catch (err) {
       logger.error('logout.error', { err });
@@ -77,8 +87,9 @@ function createApiRouter(options) {
   });
 
   router.get('/me', requireAuth, async (req, res) => {
-    const device = await db.getDevice(req.session.device_id);
-    res.json({ device, username: auth.username });
+    const device = await db.getDevice(req.device_id);
+    const user = await db.getUserById(req.user.id);
+    res.json({ device, user: { username: user.username, needsPasswordChange: !!user.is_default_password } });
   });
 
   router.get('/devices', requireAuth, async (req, res) => {
@@ -97,7 +108,7 @@ function createApiRouter(options) {
   router.post('/device/alias', requireAuth, async (req, res) => {
     try {
       const alias = (req.body?.alias || '').toString().trim();
-      const deviceId = req.session.device_id;
+      const deviceId = req.device_id;
       if (alias.length > 100) return res.status(400).json({ error: '别名过长' });
       await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '');
       const device = await db.getDevice(deviceId);
@@ -111,7 +122,7 @@ function createApiRouter(options) {
 
   router.post('/message', requireAuth, upload.array('files'), async (req, res) => {
     try {
-      const senderDeviceId = req.session.device_id;
+      const senderDeviceId = req.device_id;
       const text = (req.body.text || '').toString();
 
       const currentFileCount = await db.countFiles();
@@ -164,6 +175,39 @@ function createApiRouter(options) {
     } catch (err) {
       logger.error('file.error', { err });
       res.status(500).send('Download failed');
+    }
+  });
+
+  // Admin: update username/password
+  router.post('/admin/user', requireAuth, async (req, res) => {
+    try {
+      const { oldPassword, username, password } = req.body || {};
+      const user = await db.getUserById(req.user.id);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!oldPassword || !verifyPassword(oldPassword, user.password_hash)) {
+        return res.status(400).json({ error: '旧密码不正确' });
+      }
+      let updates = {};
+      if (username && username !== user.username) updates.username = username;
+      if (password) {
+        updates.passwordHash = hashPassword(password);
+        updates.isDefaultPassword = false;
+      }
+      if (!updates.username && !updates.passwordHash) {
+        return res.status(400).json({ error: '没有变更内容' });
+      }
+      const updated = await db.updateUserAuth(user.id, updates);
+      // Issue new token with possibly new username
+      const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
+      const expiresSec = days > 0 ? days * 24 * 60 * 60 : null;
+      const token = signJWT({ sub: updated.id, username: updated.username, device_id: req.device_id }, jwtSecret, expiresSec);
+      const cookieOpts = { httpOnly: true, sameSite: 'lax' };
+      if (days > 0) cookieOpts.maxAge = expiresSec * 1000;
+      res.cookie(tokenCookieName, token, cookieOpts);
+      res.json({ ok: true, user: { username: updated.username, needsPasswordChange: !!updated.is_default_password } });
+    } catch (err) {
+      logger.error('admin.user.error', { err });
+      res.status(500).json({ error: '更新用户失败' });
     }
   });
 

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>MyDrop 管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/index.css" />
+  </head>
+  <body class="bg-slate-100 min-h-[100dvh]">
+    <header class="border-b bg-white px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+      <div class="font-semibold">MyDrop 设置</div>
+      <a href="/" class="text-sm text-slate-600 hover:text-slate-900">返回聊天</a>
+    </header>
+    <main class="max-w-xl mx-auto p-4">
+      <div id="notice" class="hidden p-3 mb-3 rounded bg-amber-50 text-amber-800 text-sm"></div>
+      <section class="bg-white rounded shadow p-4">
+        <h2 class="font-medium mb-3">账号设置</h2>
+        <form id="userForm" class="space-y-3">
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">当前用户名</label>
+            <div id="currentUsername" class="text-slate-800"></div>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">新用户名（可选）</label>
+            <input name="username" class="w-full border rounded px-3 py-2" placeholder="不修改则留空" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">旧密码</label>
+            <input name="oldPassword" type="password" class="w-full border rounded px-3 py-2" required />
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm text-slate-600 mb-1">新密码（可选）</label>
+              <input name="password" type="password" class="w-full border rounded px-3 py-2" />
+            </div>
+            <div>
+              <label class="block text-sm text-slate-600 mb-1">确认新密码</label>
+              <input name="password2" type="password" class="w-full border rounded px-3 py-2" />
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button class="bg-slate-900 text-white rounded px-4 py-2 hover:bg-slate-800">保存</button>
+            <button type="reset" class="border rounded px-4 py-2 hover:bg-slate-50">重置</button>
+          </div>
+        </form>
+      </section>
+    </main>
+    <script src="/admin.js"></script>
+  </body>
+  </html>
+

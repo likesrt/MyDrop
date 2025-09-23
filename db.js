@@ -73,6 +73,29 @@ async function init() {
 
   await run('CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC)');
   await run('CREATE INDEX IF NOT EXISTS idx_files_message_id ON files(message_id)');
+
+  // Single user table
+  await run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    is_default_password INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`);
+  await ensureDefaultUser();
+}
+
+async function ensureDefaultUser() {
+  const existing = await get('SELECT id FROM users LIMIT 1');
+  if (!existing) {
+    const { hashPassword } = require('./auth');
+    const now = Date.now();
+    const pw = hashPassword('admin');
+    await run('INSERT INTO users (username, password_hash, is_default_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
+      'admin', pw, 1, now, now,
+    ]);
+  }
 }
 
 async function upsertDevice(deviceId, alias, userAgent) {
@@ -157,8 +180,29 @@ async function countFiles() {
   return row ? row.c : 0;
 }
 
+// Users
+async function getUserByUsername(username) {
+  return get('SELECT * FROM users WHERE username = ?', [username]);
+}
+
+async function getUserById(id) {
+  return get('SELECT * FROM users WHERE id = ?', [id]);
+}
+
+async function updateUserAuth(id, { username = null, passwordHash = null, isDefaultPassword = null }) {
+  const now = Date.now();
+  const curr = await getUserById(id);
+  if (!curr) throw new Error('User not found');
+  const newUsername = username ?? curr.username;
+  const newPw = passwordHash ?? curr.password_hash;
+  const newFlag = (isDefaultPassword === null || isDefaultPassword === undefined) ? curr.is_default_password : (isDefaultPassword ? 1 : 0);
+  await run('UPDATE users SET username = ?, password_hash = ?, is_default_password = ?, updated_at = ? WHERE id = ?', [newUsername, newPw, newFlag, now, id]);
+  return getUserById(id);
+}
+
 module.exports = {
   init,
+  ensureDefaultUser,
   upsertDevice,
   getDevice,
   listDevices,
@@ -171,5 +215,8 @@ module.exports = {
   addFile,
   getFile,
   countFiles,
+  getUserByUsername,
+  getUserById,
+  updateUserAuth,
+  // users
 };
-

@@ -16,12 +16,13 @@ const wss = new WebSocket.Server({ server, path: '/ws' });
 // Config
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const AUTH_USERNAME = process.env.AUTH_USERNAME || 'admin';
-const AUTH_PASSWORD = process.env.AUTH_PASSWORD || 'admin';
-const SESSION_COOKIE = 'sid';
+const { verifyJWT } = require('./auth');
+const TOKEN_COOKIE = 'token';
 const MAX_FILES = process.env.MAX_FILES ? parseInt(process.env.MAX_FILES, 10) : 10; // total files cap
 const FILE_SIZE_LIMIT_MB = process.env.FILE_SIZE_LIMIT_MB ? parseInt(process.env.FILE_SIZE_LIMIT_MB, 10) : 5;
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+const JWT_EXPIRES_DAYS = process.env.JWT_EXPIRES_DAYS ? parseInt(process.env.JWT_EXPIRES_DAYS, 10) : 7;
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -55,14 +56,23 @@ app.get('/index.css', (req, res) => {
   res.type('text/css').sendFile(path.join(__dirname, 'index.css'));
 });
 
+// Serve admin assets
+app.get('/admin.html', (req, res) => {
+  res.type('text/html').sendFile(path.join(__dirname, 'admin.html'));
+});
+app.get('/admin.js', (req, res) => {
+  res.type('application/javascript').sendFile(path.join(__dirname, 'admin.js'));
+});
+
 // Mount API router (all HTTP endpoints live in api.js)
 const apiRouter = createApiRouter({
-  auth: { username: AUTH_USERNAME, password: AUTH_PASSWORD },
-  sessionCookieName: SESSION_COOKIE,
+  tokenCookieName: TOKEN_COOKIE,
   db,
   uploadDir: UPLOAD_DIR,
   limits: { maxFiles: MAX_FILES, fileSizeLimitMB: FILE_SIZE_LIMIT_MB },
   broadcast: (message) => broadcastMessage(message),
+  jwtSecret: JWT_SECRET,
+  jwtExpiresDays: JWT_EXPIRES_DAYS,
 });
 app.use(apiRouter);
 
@@ -79,23 +89,24 @@ function broadcastMessage(message) {
 }
 
 wss.on('connection', async (ws, req) => {
-  // Read sid from cookie header
+  // Read token from cookie header
   const cookies = Object.fromEntries((req.headers['cookie'] || '')
     .split(';')
     .map(s => s.trim())
     .filter(Boolean)
     .map(s => s.split('='))
     .map(([k, v]) => [k, decodeURIComponent(v || '')]));
-  const sid = cookies[SESSION_COOKIE];
-  const session = sid ? await db.getSession(sid) : null;
-  if (!session) {
-    logger.warn('ws.reject', { reason: 'no-session' });
+  const token = cookies[TOKEN_COOKIE];
+  let claims = null;
+  try { if (token) claims = verifyJWT(token, JWT_SECRET); } catch (_) {}
+  if (!claims) {
+    logger.warn('ws.reject', { reason: 'no-token' });
     ws.close();
     return;
   }
 
-  clients.set(sid, { ws, deviceId: session.device_id });
-  logger.info('ws.connect', { sid, device_id: session.device_id });
+  clients.set(token, { ws, deviceId: claims.device_id });
+  logger.info('ws.connect', { device_id: claims.device_id });
 
   ws.on('message', async (raw) => {
     // For future ping/pong or typing events
@@ -108,8 +119,8 @@ wss.on('connection', async (ws, req) => {
   });
 
   ws.on('close', () => {
-    clients.delete(sid);
-    logger.info('ws.close', { sid });
+    clients.delete(token);
+    logger.info('ws.close', {});
   });
 });
 
