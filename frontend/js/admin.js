@@ -181,47 +181,15 @@
       const lastMsg = (msgs.messages || [])[msgCount - 1];
       const lastMsgTime = lastMsg ? new Date(lastMsg.created_at).toLocaleString() : '—';
 
-      const html = `
-        <div class="card p-3 anim-fadeInUp" style="animation-delay:.1s">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <div class="card-icon" aria-hidden="true"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5h12v8H3zM9 17h12v2H9zM15 9h6v4h-6z"/></svg></div>
-              <div><div class="card-title">设备</div><div class="card-desc">已注册设备数</div></div>
-            </div>
-            <div class="text-xl font-semibold text-slate-800">${deviceCount}</div>
-          </div>
-          <div class="card-meta mt-2">最近活跃：${deviceLabel(lastDevice)}</div>
-        </div>
-
-        <div class="card p-3 anim-fadeInUp" style="animation-delay:.2s">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <div class="card-icon" aria-hidden="true"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h10M4 17h7"/></svg></div>
-              <div><div class="card-title">消息</div><div class="card-desc">本地显示的消息数</div></div>
-            </div>
-            <div class="text-xl font-semibold text-slate-800">${msgCount}</div>
-          </div>
-          <div class="card-meta mt-2">最新时间：${lastMsgTime}</div>
-        </div>
-
-        <div class="card p-3 anim-fadeInUp" style="animation-delay:.3s">
-          <div class="flex items-center gap-2">
-            <div class="card-icon" aria-hidden="true"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12M6 12h12"/></svg></div>
-            <div><div class="card-title">上传限制</div><div class="card-desc">单个文件 ≤ ${cfg.fileSizeLimitMB}MB</div></div>
-          </div>
-          <div class="card-meta mt-2">全局文件上限：${cfg.maxFiles} 个</div>
-        </div>
-
-        <div class="card p-3 anim-fadeInUp" style="animation-delay:.4s">
-          <div class="flex items-center gap-2 justify-between">
-            <div class="flex items-center gap-2">
-              <div class="card-icon" aria-hidden="true"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 4v6c0 4-3 7-7 8-4-1-7-4-7-8V7l7-4z"/></svg></div>
-              <div><div class="card-title">安全状态</div><div class="card-desc">当前用户：${qs('#currentUsername')?.textContent || ''}</div></div>
-            </div>
-          </div>
-          <div class="card-meta mt-2">建议：使用强密码并妥善保管设备</div>
-        </div>`;
-
+      const html = await window.MyDropTemplates.getTemplate('admin-dashboard-cards', {
+        deviceCount,
+        lastDevice: deviceLabel(lastDevice),
+        msgCount,
+        lastMsgTime,
+        fileSizeLimit: cfg.fileSizeLimitMB,
+        maxFiles: cfg.maxFiles,
+        currentUsername: (qs('#currentUsername')?.textContent || '')
+      });
       qs('#dashboardCards').innerHTML = html;
     } catch (e) {
       // ignore dashboard if API fails

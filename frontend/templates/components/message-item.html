@@ -1,0 +1,13 @@
+<div class="w-full flex {{rowClass}}" id="message-{{id}}">
+  <div class="bubble-wrap min-w-0 flex flex-col {{alignClass}} {{sidePad}}">
+    <div class="{{bubbleCls}} text-sm leading-relaxed {{tightMargin}} break-words">
+      {{textHTML}}
+      {{fileBlocks}}
+      <div class="mt-2 flex items-center justify-end">
+        <button class="text-[11px] text-slate-500 hover:text-slate-700 underline" data-copy-mid="{{id}}" title="复制文本">复制</button>
+      </div>
+    </div>
+    {{metaHTML}}
+  </div>
+</div>
+

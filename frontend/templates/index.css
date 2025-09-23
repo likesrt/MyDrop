@@ -149,9 +149,9 @@
   width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
   border-radius: 4px; background: rgba(16,185,129,0.12); color: var(--theme-600);
 }
-.card-title { font-weight: 600; color: var(--neutral-700); }
-.card-desc { font-size: 12px; color: #64748b; }
-.card-meta { font-size: 12px; color: #475569; }
+.card-title { font-weight: 600; color: var(--text); }
+.card-desc { font-size: 12px; color: var(--muted); }
+.card-meta { font-size: 12px; color: var(--muted); }
 
 /* 统一按钮样式与反馈 */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
@@ -175,6 +175,11 @@
 .anim-fadeInDown { animation: fadeInDown .7s cubic-bezier(.4,0,.2,1) both; }
 .anim-fadeInUp { animation: fadeInUp .7s cubic-bezier(.4,0,.2,1) both; }
 .anim-fadeIn { animation: fadeIn .7s cubic-bezier(.4,0,.2,1) both; }
+.anim-delay-05 { animation-delay: .05s; }
+.anim-delay-1 { animation-delay: .1s; }
+.anim-delay-2 { animation-delay: .2s; }
+.anim-delay-3 { animation-delay: .3s; }
+.anim-delay-4 { animation-delay: .4s; }
 
 /* iOS 安全区域适配 */
 .pb-safe {
@@ -338,14 +343,6 @@ section[id^="tab-"] { background: var(--surface); color: var(--text); border: 1p
 /* 弹窗卡片使用统一表面色（暗色纯色，日间干净） */
 #modal-root .modal-card { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
-/* Tailwind 文本灰度在暗色下的可读性修复 */
-@media (prefers-color-scheme: dark) {
-  :root .text-slate-800, :root .text-slate-900 { color: var(--text) !important; }
-  :root .text-slate-700, :root .text-slate-600, :root .text-slate-500, :root .text-slate-400 { color: var(--muted) !important; }
-}
-:root[data-theme='dark'] .text-slate-800,
-:root[data-theme='dark'] .text-slate-900 { color: var(--text) !important; }
-:root[data-theme='dark'] .text-slate-700,
-:root[data-theme='dark'] .text-slate-600,
-:root[data-theme='dark'] .text-slate-500,
-:root[data-theme='dark'] .text-slate-400 { color: var(--muted) !important; }
+/* 全局统一文字颜色映射，保证不同页面一致；深浅色由变量控制 */
+:root .text-slate-800, :root .text-slate-900 { color: var(--text) !important; }
+:root .text-slate-700, :root .text-slate-600, :root .text-slate-500, :root .text-slate-400 { color: var(--muted) !important; }

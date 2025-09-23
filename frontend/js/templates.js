@@ -40,7 +40,12 @@ async function getTemplate(templatePath, data = {}) {
 async function preloadTemplates() {
   const commonTemplates = [
     'chat-layout',
-    'login-form'
+    'login-form',
+    'message-item',
+    'modal-confirm',
+    'modal-prompt',
+    'admin-dashboard-cards',
+    'admin-message-item'
   ];
 
   await Promise.all(
@@ -53,5 +58,6 @@ window.MyDropTemplates = {
   loadTemplate,
   renderTemplate,
   getTemplate,
-  preloadTemplates
+  preloadTemplates,
+  getCached(templatePath) { return templateCache.get(templatePath) || ''; }
 };

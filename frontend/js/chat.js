@@ -6,7 +6,8 @@
 
 async function renderChat() {
   const deviceLabel = (d) => d?.alias || window.MyDropUtils.shortId(d?.device_id) || '未命名设备';
-  const messagesList = window.MyDropState.messages.map((m, i) => window.MyDropRender.renderMessageWithGrouping(i)).join('');
+  const htmlList = await Promise.all(window.MyDropState.messages.map((_, i) => window.MyDropRender.renderMessageWithGrouping(i)));
+  const messagesList = htmlList.join('');
 
   return await window.MyDropTemplates.getTemplate('chat-layout', {
     deviceName: deviceLabel(window.MyDropState.me.device),
@@ -66,7 +67,7 @@ async function appendMessageToList(newMsg) {
     const idx = window.MyDropState.messages.length - 1;
 
     if (idx - 1 >= 0) {
-      const prevHtml = window.MyDropRender.renderMessageWithGrouping(idx - 1);
+      const prevHtml = await window.MyDropRender.renderMessageWithGrouping(idx - 1);
       const tempPrev = document.createElement('div');
       tempPrev.innerHTML = prevHtml;
       const prevNode = tempPrev.firstElementChild;
@@ -74,7 +75,7 @@ async function appendMessageToList(newMsg) {
       if (existingPrev && prevNode) existingPrev.replaceWith(prevNode);
     }
 
-    const html = window.MyDropRender.renderMessageWithGrouping(idx);
+    const html = await window.MyDropRender.renderMessageWithGrouping(idx);
     const temp = document.createElement('div');
     temp.innerHTML = html;
     const node = temp.firstElementChild;

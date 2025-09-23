@@ -67,13 +67,12 @@ function showConfirm(message, { title = '确认', confirmText = '确定', cancel
     overlay.className = 'absolute inset-0 bg-black/50 transition-opacity';
     const card = document.createElement('div');
     card.className = 'relative modal-card rounded shadow-lg border w-full max-w-md p-4 space-y-3 anim-fadeIn';
-    card.innerHTML = `
-      <div class="text-base font-medium text-slate-800">${window.MyDropUtils.escapeHTML(title)}</div>
-      <div class="text-sm text-slate-700">${window.MyDropUtils.escapeHTML(String(message||''))}</div>
-      <div class="flex items-center justify-end gap-2 pt-1">
-        <button class="btn pressable" data-act="cancel">${window.MyDropUtils.escapeHTML(cancelText)}</button>
-        <button class="btn btn-primary pressable" data-act="ok">${window.MyDropUtils.escapeHTML(confirmText)}</button>
-      </div>`;
+    window.MyDropTemplates.getTemplate('modal-confirm', {
+      title: window.MyDropUtils.escapeHTML(title),
+      message: window.MyDropUtils.escapeHTML(String(message||'')),
+      confirmText: window.MyDropUtils.escapeHTML(confirmText),
+      cancelText: window.MyDropUtils.escapeHTML(cancelText)
+    }).then(html => { card.innerHTML = html; });
     root.innerHTML = '';
     root.appendChild(overlay);
     root.appendChild(card);
@@ -107,24 +106,21 @@ function showPrompt(message, defaultValue = '') {
     overlay.className = 'absolute inset-0 bg-black/50 transition-opacity';
     const card = document.createElement('div');
     card.className = 'relative modal-card rounded shadow-lg border w-full max-w-md p-4 space-y-3 anim-fadeIn';
-    card.innerHTML = `
-      <div class="text-base font-medium text-slate-800">${window.MyDropUtils.escapeHTML(String(message||''))}</div>
-      <div><input id="_promptInput" class="w-full border rounded px-3 py-2" value="${window.MyDropUtils.escapeHTML(String(defaultValue||''))}" /></div>
-      <div class="flex items-center justify-end gap-2 pt-1">
-        <button class="btn pressable" data-act="cancel">取消</button>
-        <button class="btn btn-primary pressable" data-act="ok">确定</button>
-      </div>`;
+    window.MyDropTemplates.getTemplate('modal-prompt', {
+      title: window.MyDropUtils.escapeHTML(String(message||'')),
+      defaultValue: window.MyDropUtils.escapeHTML(String(defaultValue||''))
+    }).then(html => { card.innerHTML = html; });
     root.innerHTML = '';
     root.appendChild(overlay);
     root.appendChild(card);
-    const input = card.querySelector('#_promptInput');
+    const getInput = () => card.querySelector('#_promptInput');
 
     const now = (window.performance && performance.now) ? performance.now() : Date.now();
     const acceptAfter = now + 240;
     let armed = false; setTimeout(() => { armed = true; }, 180);
     const detach = () => document.removeEventListener('keydown', onKey);
     const onCancel = () => { detach(); closeModal(root, overlay); resolve(null); };
-    const onOk = () => { const v = input.value; detach(); closeModal(root, overlay); resolve(v); };
+    const onOk = () => { const v = (getInput()||{}).value; detach(); closeModal(root, overlay); resolve(v); };
     card.addEventListener('click', (e) => e.stopPropagation());
     card.querySelector('[data-act="cancel"]').addEventListener('click', onCancel);
     card.querySelector('[data-act="ok"]').addEventListener('click', onOk);
@@ -136,7 +132,7 @@ function showPrompt(message, defaultValue = '') {
       if (e.key === 'Escape') onCancel();
       if (e.key === 'Enter') onOk();
     };
-    setTimeout(() => { input.focus(); input.select(); document.addEventListener('keydown', onKey); }, 0);
+    setTimeout(() => { const input = getInput(); if (input) { input.focus(); input.select(); } document.addEventListener('keydown', onKey); }, 0);
     overlay.addEventListener('click', () => { if (!armed || ((window.performance && performance.now?performance.now():Date.now()) < acceptAfter)) return; onCancel(); });
   });
 }

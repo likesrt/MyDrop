@@ -98,17 +98,17 @@ function renderFilePreviews(files) {
   return blocks;
 }
 
-function renderMessageWithGrouping(i) {
+async function renderMessageWithGrouping(i) {
   const m = window.MyDropState.messages[i];
   const prev = window.MyDropState.messages[i - 1];
   const next = window.MyDropState.messages[i + 1];
   const samePrev = prev && prev.sender_device_id && prev.sender_device_id === m.sender_device_id && (m.created_at - prev.created_at) < 3 * 60 * 1000;
   const sameNext = next && next.sender_device_id && next.sender_device_id === m.sender_device_id && (next.created_at - m.created_at) < 3 * 60 * 1000;
   const showMeta = !samePrev;
-  return renderMessage(m, { tail: !sameNext, showMeta, tight: samePrev });
+  return await renderMessage(m, { tail: !sameNext, showMeta, tight: samePrev });
 }
 
-function renderMessage(m, opts = {}) {
+async function renderMessage(m, opts = {}) {
   const isMine = window.MyDropState.me?.device?.device_id && m.sender_device_id === window.MyDropState.me.device.device_id;
   const row = isMine ? 'justify-end' : 'justify-start';
   const align = isMine ? 'items-end text-left' : 'items-start text-left';
@@ -120,20 +120,18 @@ function renderMessage(m, opts = {}) {
   const time = new Date(m.created_at).toLocaleString();
   const textHTML = renderMarkdownWithCards(m.text || '');
   const fileBlocks = renderFilePreviews(m.files || []);
-  return `
-    <div class="w-full flex ${row}" id="message-${m.id}">
-      <div class="bubble-wrap min-w-0 flex flex-col ${align} ${sidePad}">
-        <div class="${bubbleCls} text-sm leading-relaxed ${opts.tight ? 'mt-0.5' : ''} break-words">
-          ${textHTML}
-          ${fileBlocks}
-          <div class="mt-2 flex items-center justify-end">
-            <button class="text-[11px] text-slate-500 hover:text-slate-700 underline" data-copy-mid="${m.id}" title="复制文本">复制</button>
-          </div>
-        </div>
-        ${opts.showMeta ? `<div class="text-[11px] text-slate-400 mt-1">${window.MyDropUtils.escapeHTML(name)} · ${time}</div>` : ''}
-      </div>
-    </div>
-  `;
+  const metaHTML = opts.showMeta ? `<div class="text-[11px] text-slate-400 mt-1">${window.MyDropUtils.escapeHTML(name)} · ${time}</div>` : '';
+  return await window.MyDropTemplates.getTemplate('message-item', {
+    id: m.id,
+    rowClass: row,
+    alignClass: align,
+    sidePad,
+    bubbleCls,
+    tightMargin: opts.tight ? 'mt-0.5' : '',
+    textHTML,
+    fileBlocks,
+    metaHTML,
+  });
 }
 
 window.MyDropRender = {
