@@ -15,24 +15,19 @@ const root = path.join(__dirname, '..');
 const pub = path.join(root, 'frontend', 'templates', 'static');
 const vendor = path.join(pub, 'vendor');
 ensureDir(vendor);
+// Remove heavy artifacts we no longer ship
+try { fs.rmSync(path.join(vendor, 'markdown-it.min.js'), { force: true }); } catch (_) {}
 
-// markdown-it
-copy(path.join(root, 'node_modules', 'markdown-it', 'dist', 'markdown-it.min.js'), path.join(vendor, 'markdown-it.min.js'));
-
-// marked (fallback)
+// marked (Markdown parser)
 copy(path.join(root, 'node_modules', 'marked', 'marked.min.js'), path.join(vendor, 'marked.min.js'));
 
 // DOMPurify
 copy(path.join(root, 'node_modules', 'dompurify', 'dist', 'purify.min.js'), path.join(vendor, 'dompurify.min.js'));
 
-// highlight.js js
-if (!copy(path.join(root, 'node_modules', 'highlight.js', 'build', 'highlight.min.js'), path.join(vendor, 'highlight.min.js'))) {
-  // try alternative path
-  copy(path.join(root, 'node_modules', 'highlight.js', 'lib', 'highlight.js'), path.join(vendor, 'highlight.min.js'));
-}
-// highlight.js css theme
-if (!copy(path.join(root, 'node_modules', 'highlight.js', 'styles', 'github.min.css'), path.join(vendor, 'highlight.css'))) {
-  copy(path.join(root, 'node_modules', 'highlight.js', 'styles', 'github.css'), path.join(vendor, 'highlight.css'));
-}
+// Remove highlight.js related artifacts if present (we do not ship code highlighting)
+try { fs.rmSync(path.join(vendor, 'highlight.min.js'), { force: true }); } catch (_) {}
+try { fs.rmSync(path.join(vendor, 'highlight.css'), { force: true }); } catch (_) {}
+try { fs.rmSync(path.join(vendor, 'highlight-init.mjs'), { force: true }); } catch (_) {}
+try { fs.rmSync(path.join(vendor, 'hljs'), { recursive: true, force: true }); } catch (_) {}
 
-console.log('[copy-vendor] Vendor assets prepared under public/vendor');
+console.log('[copy-vendor] Vendor assets prepared under templates/static/vendor');

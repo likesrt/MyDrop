@@ -284,7 +284,7 @@
         api('/messages?limit=1000'),
         api('/devices')
       ]);
-      const items = msgsRes.messages || [];
+      const items = (msgsRes.messages || []).slice().sort((a,b) => (b.created_at||0) - (a.created_at||0));
       const devices = devRes.devices || [];
       const root = qs('#messageListAdmin');
       const searchBox = qs('#searchInput');
@@ -308,6 +308,7 @@
         if (q) {
           filtered = filtered.filter(m => (m.text || '').toLowerCase().includes(q) || (m.files||[]).some(f => (f.original_name||'').toLowerCase().includes(q)));
         }
+        filtered = filtered.slice().sort((a,b) => (b.created_at||0) - (a.created_at||0));
         root.innerHTML = filtered.map(m => {
           const time = new Date(m.created_at).toLocaleString();
           const sLabel = deviceLabel(m.sender);

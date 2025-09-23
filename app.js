@@ -41,6 +41,7 @@ async function boot() {
 
 // Middleware
 app.use(cookieParser());
+try { app.use(require('compression')()); } catch (_) {}
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger(logger));
@@ -48,7 +49,7 @@ app.use(requestLogger(logger));
 try { require('./scripts/copy-vendor'); } catch (_) {}
 // Serve built static assets (Tailwind CSS, vendor libs) under frontend/templates/static
 const TEMPLATES_DIR = path.join(__dirname, 'frontend/templates');
-app.use('/static', express.static(path.join(TEMPLATES_DIR, 'static')));
+app.use('/static', express.static(path.join(TEMPLATES_DIR, 'static'), { maxAge: '30d', immutable: true }));
 // Serve frontend JS files
 app.use('/js', express.static(path.join(__dirname, 'frontend/js')));
 // Serve template components
