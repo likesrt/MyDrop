@@ -22,12 +22,45 @@ function createApiRouter(options) {
   const router = express.Router();
 
   // Multer for this router
+  function decodeUploadName(name) {
+    try {
+      // busboy/multer gives latin1 for non-ASCII; convert to UTF-8
+      return Buffer.from(String(name || ''), 'latin1').toString('utf8');
+    } catch (_) { return String(name || ''); }
+  }
+  function sanitizeFilenamePreserve(name) {
+    let base = path.basename(name || '');
+    // remove control chars; replace path separators
+    base = base.replace(/[\x00-\x1F\x7F]/g, '').replace(/[\\/]/g, '_');
+    if (base === '' || base === '.' || base === '..') base = '_';
+    // limit length to avoid filesystem issues
+    if (base.length > 200) {
+      const p = path.parse(base);
+      const stem = p.name.slice(0, 180);
+      base = stem + (p.ext || '').slice(0, 20);
+    }
+    return base;
+  }
+  function ensureUniqueFilename(dir, desired) {
+    let p = path.join(dir, desired);
+    if (!fs.existsSync(p)) return desired;
+    const parsed = path.parse(desired);
+    let i = 2;
+    while (true) {
+      const cand = `${parsed.name} (${i})${parsed.ext}`;
+      p = path.join(dir, cand);
+      if (!fs.existsSync(p)) return cand;
+      i++;
+      if (i > 9999) return `${parsed.name}-${Date.now()}${parsed.ext}`; // fallback
+    }
+  }
   const storage = multer.diskStorage({
     destination: function (req, file, cb) { cb(null, uploadDir); },
     filename: function (req, file, cb) {
-      const ext = path.extname(file.originalname);
-      const name = uuidv4().replace(/-/g, '') + ext;
-      cb(null, name);
+      const decoded = decodeUploadName(file.originalname);
+      const safe = sanitizeFilenamePreserve(decoded);
+      const unique = ensureUniqueFilename(uploadDir, safe);
+      cb(null, unique);
     },
   });
   const upload = multer({ storage, limits: { fileSize: limits.fileSizeLimitMB * 1024 * 1024 } });
@@ -160,7 +193,7 @@ function createApiRouter(options) {
           await db.addFile({
             messageId: msg.id,
             storedName: path.basename(f.filename),
-            originalName: f.originalname,
+            originalName: decodeUploadName(f.originalname),
             mimeType: f.mimetype,
             size: f.size,
           });
