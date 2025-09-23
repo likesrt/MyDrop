@@ -12,7 +12,7 @@ function copy(src, dest) {
 }
 
 const root = path.join(__dirname, '..');
-const pub = path.join(root, 'templates', 'static');
+const pub = path.join(root, 'frontend', 'templates', 'static');
 const vendor = path.join(pub, 'vendor');
 ensureDir(vendor);
 

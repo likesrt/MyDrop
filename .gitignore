@@ -33,3 +33,4 @@ tmp/
 *.log
 AGENTS.md
 CLAUDE.md
+.claude/

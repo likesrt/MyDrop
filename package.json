@@ -6,7 +6,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "build:css": "tailwindcss -i styles/tailwind.css -o templates/static/tailwind.css --minify",
+    "build:css": "tailwindcss -i frontend/styles/tailwind.css -o frontend/templates/static/tailwind.css --minify",
     "build:vendor": "node scripts/copy-vendor.js",
     "build": "yarn build:css && yarn build:vendor",
     "postinstall": "yarn build",

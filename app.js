@@ -5,9 +5,9 @@ const http = require('http');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const WebSocket = require('ws');
-const createApiRouter = require('./api');
-const db = require('./db');
-const { logger, requestLogger } = require('./logger');
+const createApiRouter = require('./backend/api');
+const db = require('./backend/services/db');
+const { logger, requestLogger } = require('./backend/services/logger');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,7 +16,7 @@ const wss = new WebSocket.Server({ server, path: '/ws' });
 // Config
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const { verifyJWT } = require('./auth');
+const { verifyJWT } = require('./backend/services/auth');
 const TOKEN_COOKIE = 'token';
 const MAX_FILES = process.env.MAX_FILES ? parseInt(process.env.MAX_FILES, 10) : 10; // total files cap
 const FILE_SIZE_LIMIT_MB = process.env.FILE_SIZE_LIMIT_MB ? parseInt(process.env.FILE_SIZE_LIMIT_MB, 10) : 5;
@@ -46,27 +46,31 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger(logger));
 // Ensure local vendor assets are present (copy from node_modules if missing)
 try { require('./scripts/copy-vendor'); } catch (_) {}
-// Serve built static assets (Tailwind CSS, vendor libs) under templates/static
-const TEMPLATES_DIR = path.join(__dirname, 'templates');
+// Serve built static assets (Tailwind CSS, vendor libs) under frontend/templates/static
+const TEMPLATES_DIR = path.join(__dirname, 'frontend/templates');
 app.use('/static', express.static(path.join(TEMPLATES_DIR, 'static')));
+// Serve frontend JS files
+app.use('/js', express.static(path.join(__dirname, 'frontend/js')));
+// Serve template components
+app.use('/templates', express.static(TEMPLATES_DIR));
 
 // Serve minimal static assets only (moved under templates)
 app.get('/', (req, res) => {
   res.sendFile(path.join(TEMPLATES_DIR, 'index.html'));
 });
-app.get('/index.js', (req, res) => {
-  res.type('application/javascript').sendFile(path.join(TEMPLATES_DIR, 'index.js'));
+app.get('/demo', (req, res) => {
+  res.sendFile(path.join(TEMPLATES_DIR, 'demo.html'));
 });
 app.get('/index.css', (req, res) => {
   res.type('text/css').sendFile(path.join(TEMPLATES_DIR, 'index.css'));
 });
 
 // Serve admin assets
-app.get('/admin.html', (req, res) => {
+app.get('/admin', (req, res) => {
   res.type('text/html').sendFile(path.join(TEMPLATES_DIR, 'admin.html'));
 });
 app.get('/admin.js', (req, res) => {
-  res.type('application/javascript').sendFile(path.join(TEMPLATES_DIR, 'admin.js'));
+  res.type('application/javascript').sendFile(path.join(__dirname, 'frontend/js/admin.js'));
 });
 
 // Mount API router (all HTTP endpoints live in api.js)

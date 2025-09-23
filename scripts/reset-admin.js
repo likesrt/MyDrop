@@ -3,7 +3,7 @@
 
 const path = require('path');
 const sqlite3 = require('sqlite3');
-const { hashPassword } = require('../auth');
+const { hashPassword } = require('../backend/services/auth');
 
 require('dotenv').config();
 
@@ -50,4 +50,3 @@ async function main() {
 }
 
 main();
-

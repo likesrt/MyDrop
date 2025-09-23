@@ -6,11 +6,13 @@
 
   async function api(path, opts={}) {
     const res = await fetch(path, opts);
-    if (res.status === 401) { location.href = '/'; throw new Error('未登录'); }
     if (!res.ok) {
-      let msg = '请求失败';
-      try { const j = await res.json(); msg = j.error || msg; } catch(_){}
-      throw new Error(msg);
+      let msg = res.status === 401 ? '未登录' : '请求失败';
+      try { const j = await res.json(); if (j && j.error) msg = j.error; } catch(_){}
+      if (res.status === 401) { location.href = '/'; }
+      const err = new Error(msg);
+      err.status = res.status;
+      throw err;
     }
     return res.json();
   }
@@ -25,6 +27,14 @@
     }
     return el;
   }
+  function formatError(err, tip='') {
+    try {
+      const msg = (err && err.message) ? String(err.message) : '请求失败';
+      const code = (err && typeof err.status === 'number') ? ` (代码: ${err.status})` : '';
+      return tip ? `${tip}：${msg}${code}` : `${msg}${code}`;
+    } catch (_) { return tip ? `${tip}：请求失败` : '请求失败'; }
+  }
+
   function toast(message, type='info') {
     const root = ensureToastRoot();
     const div = document.createElement('div');
@@ -133,7 +143,7 @@
         toast('保存成功', 'success');
         setTimeout(() => location.reload(), 700);
       } catch (err) {
-        toast(err.message, 'error');
+        toast(formatError(err, '保存失败'), 'error');
       }
     });
   }
@@ -259,7 +269,7 @@
             toast('已删除设备' + (also ? '并清理消息' : ''), 'success');
             renderDevices();
           } catch (e) {
-            toast(e.message, 'error');
+            toast(formatError(e, '删除设备失败'), 'error');
           }
         });
       });
@@ -328,7 +338,7 @@
             const idx = items.findIndex(x => x.id === id);
             if (idx >= 0) items.splice(idx, 1);
             renderList();
-          } catch (e) { toast(e.message, 'error'); }
+          } catch (e) { toast(formatError(e, '删除消息失败'), 'error'); }
         }));
         root.querySelectorAll('[data-action="file-del"]').forEach(b => b.addEventListener('click', async () => {
           const id = parseInt(b.getAttribute('data-id'), 10);
@@ -343,7 +353,7 @@
               if (i >= 0) { m.files.splice(i,1); break; }
             }
             renderList();
-          } catch (e) { toast(e.message, 'error'); }
+          } catch (e) { toast(formatError(e, '删除文件失败'), 'error'); }
         }));
       };
 

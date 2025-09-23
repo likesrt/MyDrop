@@ -92,6 +92,17 @@ html, body {
   overscroll-behavior: contain;
 }
 
+/* 聊天容器滚动优化 */
+#messages {
+  overscroll-behavior: contain;
+}
+
+/* 确保聊天页面占满屏幕 */
+#app {
+  height: 100vh;
+  height: 100dvh;
+}
+
 /* Toast 简单过渡 */
 .toast-enter { opacity: 0; transform: translateY(8px); }
 .toast-enter-active { transition: all .2s ease; opacity: 1; transform: translateY(0); }

@@ -1,0 +1,22 @@
+<!-- 登录表单模板 -->
+<div class="flex-1 flex items-center justify-center p-4">
+  <div id="loginCard" class="bg-white shadow rounded p-6 w-full max-w-sm">
+    <h1 class="text-xl font-semibold mb-4">登录</h1>
+    <form id="loginForm" class="space-y-4">
+      <div>
+        <label class="block text-sm text-slate-600 mb-1">用户名</label>
+        <input id="loginUsername" name="username" class="w-full border rounded px-3 py-2" value="admin" />
+      </div>
+      <div>
+        <label class="block text-sm text-slate-600 mb-1">密码</label>
+        <input id="loginPassword" name="password" type="password" class="w-full border rounded px-3 py-2" value="admin" />
+      </div>
+      <div>
+        <label class="block text-sm text-slate-600 mb-1">设备别名（可选）</label>
+        <input id="loginAlias" name="alias" class="w-full border rounded px-3 py-2" placeholder="例如：办公室电脑" />
+      </div>
+      <button id="loginSubmitBtn" class="w-full bg-slate-900 text-white rounded py-2 hover:bg-slate-800">登录</button>
+      <p class="text-xs text-slate-500 mt-2">单用户（admin/admin），多个设备互相聊天</p>
+    </form>
+  </div>
+</div>
