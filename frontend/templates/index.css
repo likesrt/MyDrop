@@ -147,3 +147,13 @@ html, body {
 .md-body table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
 .md-body th, .md-body td { border: 1px solid #e5e7eb; padding: 0.25rem 0.5rem; }
 .md-body a { color: var(--theme-600); }
+
+/* 锚点消息高亮效果 */
+@keyframes msgGlow {
+  0% { box-shadow: 0 0 0 8px rgba(59,130,246,0.25), 0 2px 6px rgba(15, 23, 42, 0.12); }
+  100% { box-shadow: 0 0 0 0 rgba(59,130,246,0), 0 2px 6px rgba(15, 23, 42, 0.12); }
+}
+.msg-highlight .bubble {
+  border-color: rgba(59,130,246,0.55) !important;
+  animation: msgGlow 1.6s ease-out 1;
+}

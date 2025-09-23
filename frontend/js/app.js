@@ -27,17 +27,10 @@ async function render() {
   app.innerHTML = await window.MyDropChat.renderChat();
   window.MyDropChat.bindChat();
   try { attachMediaLoadScroll(window.MyDropUtils.qs('#messageList') || document); } catch (_) {}
-  // 渲染完成后，如有锚点则跳转到指定消息；否则定位到底部
+  // 渲染完成后，如有锚点则跳转并高亮；否则定位到底部
   requestAnimationFrame(() => {
-    const hash = (location.hash || '').trim();
-    const m = /^#message-(\d+)$/.exec(hash);
-    if (m) {
-      const el = document.getElementById('message-' + m[1]);
-      if (el) el.scrollIntoView({ block: 'center', behavior: 'instant' });
-      else window.MyDropChat.jumpToBottom();
-    } else {
-      window.MyDropChat.jumpToBottom();
-    }
+    const did = highlightAnchorIfAny();
+    if (!did) window.MyDropChat.jumpToBottom();
   });
 }
 
@@ -69,6 +62,10 @@ function attachMediaLoadScroll() {
     await window.MyDropAPI.loadInitialMessages(needMore ? 1000 : 100);
     await render();
     window.MyDropWebSocket.openWS();
+    // 监听 hash 变化，支持后续跳转与高亮
+    window.addEventListener('hashchange', () => {
+      highlightAnchorIfAny();
+    });
   } catch (_) {
     await render();
   }
@@ -78,3 +75,17 @@ window.MyDropApp = {
   render,
   attachMediaLoadScroll
 };
+
+function highlightAnchorIfAny() {
+  try {
+    const hash = (location.hash || '').trim();
+    const m = /^#message-(\d+)$/.exec(hash);
+    if (!m) return false;
+    const el = document.getElementById('message-' + m[1]);
+    if (!el) return false;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.classList.add('msg-highlight');
+    setTimeout(() => { try { el.classList.remove('msg-highlight'); } catch (_) {} }, 1800);
+    return true;
+  } catch (_) { return false; }
+}
