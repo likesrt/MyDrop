@@ -91,6 +91,7 @@
       if (b.getAttribute('data-tab') === name) b.classList.add('btn-primary'); else b.classList.remove('btn-primary');
     });
     if (name === 'devices') renderDevices();
+    if (name === 'messages') renderMessages();
   }
 
   async function renderDashboard() {
@@ -144,7 +145,6 @@
               <div class="card-icon" aria-hidden="true"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 4v6c0 4-3 7-7 8-4-1-7-4-7-8V7l7-4z"/></svg></div>
               <div><div class="card-title">安全状态</div><div class="card-desc">当前用户：${qs('#currentUsername')?.textContent || ''}</div></div>
             </div>
-            <a class="btn btn-primary pressable" href="/admin.html" aria-label="前往设置">设置</a>
           </div>
           <div class="card-meta mt-2">建议：使用强密码并妥善保管设备</div>
         </div>`;
@@ -191,6 +191,73 @@
           }
         });
       });
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  async function renderMessages() {
+    try {
+      const data = await api('/messages?limit=1000');
+      const items = data.messages || [];
+      const root = qs('#messageListAdmin');
+      const searchBox = qs('#searchInput');
+      const renderList = () => {
+        const q = (searchBox.value || '').toLowerCase().trim();
+        const filtered = q
+          ? items.filter(m => (m.text || '').toLowerCase().includes(q) || (m.files||[]).some(f => (f.original_name||'').toLowerCase().includes(q)))
+          : items;
+        root.innerHTML = filtered.map(m => {
+          const time = new Date(m.created_at).toLocaleString();
+          const files = (m.files||[]).map(f => `<div class=\"text-xs text-slate-600 flex items-center gap-2\">📎 ${f.original_name} <button class=\"btn pressable\" data-action=\"file-del\" data-id=\"${f.id}\">删除文件</button></div>`).join('');
+          const preview = (m.text || '').slice(0, 80).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          return `
+            <div class=\"card p-3\" data-mid=\"${m.id}\">
+              <div class=\"flex items-start justify-between gap-3\">
+                <div class=\"min-w-0\">
+                  <div class=\"font-medium text-slate-800\">消息 #${m.id} · ${time}</div>
+                  <div class=\"text-sm text-slate-700 break-words\">${preview || '<span class=\"text-slate-400\">(无文本)</span>'}</div>
+                  ${files ? `<div class=\"mt-1 space-y-1\">${files}</div>` : ''}
+                </div>
+                <div class=\"shrink-0\"><button class=\"btn pressable\" data-action=\"msg-del\" data-id=\"${m.id}\">删除消息</button></div>
+              </div>
+            </div>`;
+        }).join('');
+
+        // bind actions
+        root.querySelectorAll('[data-action="msg-del"]').forEach(b => b.addEventListener('click', async () => {
+          const id = parseInt(b.getAttribute('data-id'), 10);
+          if (!confirm(`确认删除消息 #${id}？`)) return;
+          try {
+            await api('/admin/message/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messageId: id }) });
+            toast('已删除消息', 'success');
+            // remove locally
+            const idx = items.findIndex(x => x.id === id);
+            if (idx >= 0) items.splice(idx, 1);
+            renderList();
+          } catch (e) { toast(e.message, 'error'); }
+        }));
+        root.querySelectorAll('[data-action="file-del"]').forEach(b => b.addEventListener('click', async () => {
+          const id = parseInt(b.getAttribute('data-id'), 10);
+          if (!confirm(`确认删除文件 #${id}？`)) return;
+          try {
+            await api('/admin/file/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileId: id }) });
+            toast('已删除文件', 'success');
+            // remove locally
+            for (const m of items) {
+              const i = (m.files||[]).findIndex(f => f.id === id);
+              if (i >= 0) { m.files.splice(i,1); break; }
+            }
+            renderList();
+          } catch (e) { toast(e.message, 'error'); }
+        }));
+      };
+
+      if (searchBox) {
+        searchBox.removeEventListener('_search', ()=>{});
+        searchBox.addEventListener('input', renderList);
+      }
+      renderList();
     } catch (e) {
       // ignore
     }
