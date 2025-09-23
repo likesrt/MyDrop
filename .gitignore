@@ -27,3 +27,4 @@ coverage/
 dist/
 tmp/
 *.log
+AGENTS.md
