@@ -253,6 +253,16 @@ async function countFiles() {
   return row ? row.c : 0;
 }
 
+// Admin utilities
+async function listAllFiles() {
+  return all('SELECT * FROM files ORDER BY id ASC');
+}
+
+async function clearAllMessages() {
+  // Due to ON DELETE CASCADE on files(message_id), deleting messages clears file rows.
+  await run('DELETE FROM messages');
+}
+
 // Users
 async function getUserByUsername(username) {
   return get('SELECT * FROM users WHERE username = ?', [username]);
@@ -281,6 +291,7 @@ async function updateUserAuth(id, { username = null, passwordHash = null, isDefa
 module.exports = {
   init,
   ensureDefaultUser,
+  // devices
   upsertDevice,
   getDevice,
   listDevices,
@@ -298,6 +309,8 @@ module.exports = {
   listFilesByDevice,
   deleteFile,
   countFiles,
+  listAllFiles,
+  clearAllMessages,
   getUserByUsername,
   getUserById,
   updateUserAuth,
