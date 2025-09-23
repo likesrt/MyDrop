@@ -22,6 +22,7 @@
   /* light theme tokens */
   --bg: #f1f5f9;                 /* page background */
   --surface: #ffffff;            /* cards, panels */
+  --surface-elev: #ffffff;       /* elevated surfaces (toast/modal) */
   --surface-translucent: rgba(255,255,255,0.95);
   --text: #0f172a;               /* primary text */
   --muted: #475569;              /* secondary text */
@@ -43,6 +44,7 @@
   :root {
     --bg: #0b1220;
     --surface: #0f172a;
+    --surface-elev: #111827;
     --surface-translucent: rgba(15,23,42,0.9);
     --text: #e5e7eb;
     --muted: #94a3b8;
@@ -269,13 +271,14 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 
 /* Toast 主题适配与类型色彩 */
 .toast {
-  background: var(--surface);
+  background: var(--surface-elev);
   color: var(--text);
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
-  box-shadow: 0 6px 14px rgba(15,23,42,0.22);
+  box-shadow: 0 10px 24px rgba(2,6,23,0.35);
+  backdrop-filter: saturate(140%) blur(4px);
 }
 :root { --accent-success: #10b981; --accent-warn: #f59e0b; --accent-error: #ef4444; }
 .toast--success { border-left-color: var(--accent-success); }
@@ -340,10 +343,13 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 section[id^="tab-"] { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
 /* 全屏编辑器（深浅色适配） */
-#fs-editor { background: var(--surface); color: var(--text); }
-#fs-editor header { background: var(--surface); border-color: var(--border); }
+#fs-editor { background: var(--surface-elev); color: var(--text); }
+#fs-editor header { background: var(--surface-elev); border-color: var(--border); }
 #fs-editor #fsInput { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 #fs-editor #fsPreview { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+/* 弹窗卡片使用更高层级表面色以增强对比 */
+#modal-root .modal-card { background: var(--surface-elev); color: var(--text); border: 1px solid var(--border); }
 
 /* Tailwind 文本灰度在暗色下的可读性修复 */
 @media (prefers-color-scheme: dark) {

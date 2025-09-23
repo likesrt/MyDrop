@@ -65,7 +65,7 @@
     return new Promise((resolve) => {
       const root = ensureModalRoot();
       const overlay = document.createElement('div');
-      overlay.className = 'absolute inset-0 bg-black/30 transition-opacity';
+      overlay.className = 'absolute inset-0 bg-black/50 transition-opacity';
       const card = document.createElement('div');
       card.className = 'relative modal-card rounded shadow-lg border w-full max-w-md p-4 space-y-3';
       card.innerHTML = `
