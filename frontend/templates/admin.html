@@ -11,7 +11,6 @@
     <!-- SweetAlert2: prefer local vendor, fallback to CDN -->
     <link rel="stylesheet" href="/static/vendor/sweetalert2.min.css" />
     <script src="/static/vendor/sweetalert2.all.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <link rel="stylesheet" href="/index.css" />
     <script>
       if ('serviceWorker' in navigator) {
@@ -41,6 +40,9 @@
       <section id="tab-dashboard" class="bg-white rounded shadow p-4 hidden">
         <h2 class="font-medium mb-3">仪表盘</h2>
         <div id="dashboardCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+        <div class="mt-4 pt-3 border-t flex items-center justify-end">
+          <button id="clearCacheBtn" class="btn pressable" title="清除本地静态资源缓存（不影响登录状态）">清除本地静态资源缓存</button>
+        </div>
       </section>
 
       <section id="tab-settings" class="bg-white rounded shadow p-4 hidden">

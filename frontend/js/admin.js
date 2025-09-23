@@ -128,6 +128,31 @@
         currentUsername: (qs('#currentUsername')?.textContent || '')
       });
       qs('#dashboardCards').innerHTML = html;
+      // 绑定清理缓存按钮
+      const clearBtn = qs('#clearCacheBtn');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', async () => {
+          try {
+            const ok = await showConfirm('清除本地静态资源缓存？\n不会清除登录状态或设备信息。', { title: '确认', confirmText: '清除', cancelText: '取消' });
+            if (!ok) return;
+            let removed = 0;
+            if ('caches' in window) {
+              const keys = await caches.keys();
+              const targets = keys.filter(k => k.startsWith('mydrop-static-v'));
+              await Promise.all(targets.map(async k => { const ok = await caches.delete(k); if (ok) removed++; }));
+            }
+            // 让 SW 立即激活新版本（如果有）
+            try {
+              if (navigator.serviceWorker?.controller) {
+                navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+              }
+            } catch (_) {}
+            toast(`已清除 ${removed} 个缓存条目`, 'success');
+          } catch (e) {
+            toast(formatError(e, '清理失败'), 'error');
+          }
+        });
+      }
     } catch (e) {
       // ignore dashboard if API fails
     }
