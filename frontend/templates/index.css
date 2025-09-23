@@ -87,9 +87,21 @@ input, button {
   font-size: 16px;
 }
 
-/* 仅缩小聊天输入框占位符字体，不影响其它输入 */
-#textInput::placeholder {
-  font-size: 13px;
+/* 占位符：一行、隐藏溢出、省略号；使用媒体查询控制字号 */
+#textInput::placeholder,
+#textInput::-webkit-input-placeholder,
+#textInput::-moz-placeholder,
+#textInput:-ms-input-placeholder,
+#textInput::-ms-input-placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 640px) {
+  #textInput::placeholder { font-size: 12px; }
+}
+@media (min-width: 641px) {
+  #textInput::placeholder { font-size: 13px; }
 }
 
 /* 滚动优化，避免页面级别回弹影响 */
