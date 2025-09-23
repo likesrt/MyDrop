@@ -124,10 +124,10 @@
     return `
       <header id="mainHeader" class="border-b bg-white/90 backdrop-blur px-4 py-3 flex items-center justify-between sticky top-0 z-10 anim-fadeInDown" style="animation-delay:.05s">
         <div id="brandTitle" class="font-semibold flex items-center gap-2">
-          <span>MyDrop</span>
+          <a href="/" class="hover:underline">MyDrop</a>
         </div>
         <div id="headerActions" class="flex items-center gap-3">
-          <div class="text-sm text-slate-600">本设备：<span class="font-medium">${deviceLabel(state.me.device)}</span></div>
+          <div class="text-sm text-slate-600">本设备：<span id="deviceNameLabel" class="font-medium">${deviceLabel(state.me.device)}</span></div>
           <button id="aliasBtn" class="btn pressable text-xs">设备名称</button>
 
           <a id="settingsBtn" href="/admin.html" class="inline-flex items-center justify-center w-9 h-9 border rounded hover:bg-slate-50 btn pressable" title="设置" aria-label="设置" style="line-height: 1;">
@@ -169,19 +169,19 @@
     const m = state.messages[i];
     const prev = state.messages[i - 1];
     const next = state.messages[i + 1];
-    const samePrev = prev && prev.sender_device_id === m.sender_device_id && (m.created_at - prev.created_at) < 3 * 60 * 1000;
-    const sameNext = next && next.sender_device_id === m.sender_device_id && (next.created_at - m.created_at) < 3 * 60 * 1000;
+    const samePrev = prev && prev.sender_device_id && prev.sender_device_id === m.sender_device_id && (m.created_at - prev.created_at) < 3 * 60 * 1000;
+    const sameNext = next && next.sender_device_id && next.sender_device_id === m.sender_device_id && (next.created_at - m.created_at) < 3 * 60 * 1000;
     const showMeta = !samePrev;
     return renderMessage(m, { tail: !sameNext, showMeta, tight: samePrev });
   }
 
   function renderMessage(m, opts = {}) {
-    const isMine = state.me?.device?.device_id === m.sender_device_id;
+    const isMine = state.me?.device?.device_id && m.sender_device_id === state.me.device.device_id;
     const row = isMine ? 'justify-end' : 'justify-start';
     const align = isMine ? 'items-end text-left' : 'items-start text-left';
     let bubbleCls = isMine ? 'bubble bubble-mine bubble-shadow' : 'bubble bubble-other bubble-shadow ring-1 ring-slate-200';
     if (opts.tail) bubbleCls += isMine ? ' bubble-tail-right' : ' bubble-tail-left';
-    const name = m.sender?.alias || shortId(m.sender_device_id) || '未命名设备';
+    const name = m.sender?.alias || (m.sender_device_id ? shortId(m.sender_device_id) : null) || '已删除设备';
     const time = new Date(m.created_at).toLocaleString();
     const textHTML = renderMarkdownWithCards(m.text || '');
     const fileBlocks = renderFilePreviews(m.files || []);
@@ -416,7 +416,8 @@
         selectedFiles.textContent = '';
         syncHeight();
         ensureLayoutSpacing();
-        setTimeout(scrollToBottom, 50);
+        // 保持焦点，避免发送后输入框失焦
+        setTimeout(() => { try { textInput.focus(); textInput.setSelectionRange(textInput.value.length, textInput.value.length); } catch (_) {} scrollToBottom(); }, 50);
       } catch (err) {
         toast(err.message, 'error');
       }
@@ -430,7 +431,7 @@
       window.addEventListener('orientationchange', () => setTimeout(scrollToBottom, 300));
     }
 
-    // 修改设备别名（自定义弹窗）
+    // 修改设备别名（自定义弹窗，避免整页刷新）
     qs('#aliasBtn').addEventListener('click', async () => {
       const current = state.me?.device?.alias || '';
       const alias = await showPrompt('设置设备别名：', current);
@@ -438,7 +439,9 @@
       try {
         const res = await api('/device/alias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ alias }) });
         state.me.device = res.device;
-        render();
+        const label = (res.device?.alias || (res.device?.device_id ? (String(res.device.device_id).slice(0,4)+'…'+String(res.device.device_id).slice(-4)) : '未命名设备'));
+        const el = qs('#deviceNameLabel');
+        if (el) el.textContent = label;
       } catch (e) {
         toast(e.message, 'error');
       }
@@ -840,11 +843,11 @@
           state.messages.push(msg.data);
           // If new device shows up later, refresh device list lazily
           const senderId = msg.data.sender_device_id;
-          if (!state.devices.find(d => d.device_id === senderId) && msg.data.sender) {
+          if (senderId && !state.devices.find(d => d.device_id === senderId) && msg.data.sender) {
             state.devices.unshift(msg.data.sender);
           }
-          render();
-          scrollToBottom();
+          // 仅增量更新消息列表，避免刷新头部和失去焦点
+          appendMessageToList(msg.data);
         } else if (msg.type === 'force-logout') {
           // 被管理员强制下线
           toast('已被管理员下线', 'warn');
@@ -868,4 +871,33 @@
       render();
     }
   })();
+
+  // 追加消息渲染（增量），并更新上一条的分组外观
+  function appendMessageToList(newMsg) {
+    try {
+      const list = qs('#messageList');
+      if (!list) { render(); return; }
+      const idx = state.messages.length - 1;
+      // 更新上一条（去掉尾巴/元信息等）
+      if (idx - 1 >= 0) {
+        const prevHtml = renderMessageWithGrouping(idx - 1);
+        const tempPrev = document.createElement('div');
+        tempPrev.innerHTML = prevHtml;
+        const prevNode = tempPrev.firstElementChild;
+        const existingPrev = qs('#message-' + state.messages[idx - 1].id);
+        if (existingPrev && prevNode) existingPrev.replaceWith(prevNode);
+      }
+      // 追加当前消息
+      const html = renderMessageWithGrouping(idx);
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      const node = temp.firstElementChild;
+      if (node) list.appendChild(node);
+      ensureLayoutSpacing();
+      scrollToBottom();
+    } catch (_) {
+      // 回退策略
+      try { render(); } catch (_) {}
+    }
+  }
 })();

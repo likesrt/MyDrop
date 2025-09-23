@@ -68,12 +68,16 @@ function createApiRouter(options) {
   router.post('/login', async (req, res) => {
     try {
       const { username, password, deviceId, alias } = req.body || {};
-      if (!username || !password) return res.status(400).json({ error: 'Missing credentials' });
-      if (!deviceId) return res.status(400).json({ error: 'Missing deviceId' });
+      if (!username || !password) return res.status(400).json({ error: '缺少用户名或密码' });
+      if (!deviceId) return res.status(400).json({ error: '缺少设备ID' });
       const user = await db.getUserByUsername(username);
-      if (!user || !verifyPassword(password, user.password_hash)) {
-        logger.warn('login.failed', { username: username || '', ip: req.ip });
-        return res.status(401).json({ error: 'Invalid credentials' });
+      if (!user) {
+        logger.warn('login.failed.no_user', { username: username || '', ip: req.ip });
+        return res.status(401).json({ error: '用户名不存在' });
+      }
+      if (!verifyPassword(password, user.password_hash)) {
+        logger.warn('login.failed.bad_password', { username: username || '', ip: req.ip });
+        return res.status(401).json({ error: '密码错误' });
       }
       await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '');
       const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;

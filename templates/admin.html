@@ -12,7 +12,7 @@
     <div class="bg-decor" aria-hidden="true"></div>
     <header class="border-b bg-white/90 backdrop-blur px-4 py-3 flex items-center justify-between sticky top-0 z-10 anim-fadeInDown">
       <div class="font-semibold flex items-center gap-2">
-        <span>MyDrop 设置</span>
+        <a href="/" class="hover:underline">MyDrop 设置</a>
       </div>
       <a id="backToChatBtn" href="/" class="btn pressable" aria-label="返回聊天">返回聊天</a>
     </header>
@@ -43,16 +43,16 @@
           </div>
           <div>
             <label class="block text-sm text-slate-600 mb-1">旧密码</label>
-            <input name="oldPassword" type="password" class="w-full border rounded px-3 py-2" required />
+            <input name="oldPassword" type="password" autocomplete="current-password" class="w-full border rounded px-3 py-2" required />
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label class="block text-sm text-slate-600 mb-1">新密码</label>
-              <input name="password" type="password" class="w-full border rounded px-3 py-2" />
+              <input name="password" type="password" autocomplete="new-password" class="w-full border rounded px-3 py-2" />
             </div>
             <div>
               <label class="block text-sm text-slate-600 mb-1">确认新密码</label>
-              <input name="password2" type="password" class="w-full border rounded px-3 py-2" />
+              <input name="password2" type="password" autocomplete="new-password" class="w-full border rounded px-3 py-2" />
             </div>
           </div>
           <div class="flex gap-2">
@@ -69,7 +69,12 @@
 
       <section id="tab-messages" class="bg-white rounded shadow p-4 hidden">
         <h2 class="font-medium mb-3">消息管理</h2>
-        <div class="mb-3"><input id="searchInput" class="w-full border rounded px-3 py-2" placeholder="搜索消息内容或文件名" /></div>
+        <div class="mb-3 flex items-center gap-2 flex-wrap">
+          <input id="searchInput" class="flex-1 min-w-[220px] border rounded px-3 py-2" placeholder="搜索消息内容或文件名" />
+          <select id="deviceFilter" class="border rounded px-3 py-2">
+            <option value="">全部设备</option>
+          </select>
+        </div>
         <div id="messageListAdmin" class="space-y-2"></div>
       </section>
     </main>

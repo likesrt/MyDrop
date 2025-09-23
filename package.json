@@ -1,5 +1,5 @@
 {
-  "name": "single-user-multi-device-chat",
+  "name": "mydrop",
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
@@ -9,7 +9,8 @@
     "build:css": "tailwindcss -i styles/tailwind.css -o templates/static/tailwind.css --minify",
     "build:vendor": "node scripts/copy-vendor.js",
     "build": "yarn build:css && yarn build:vendor",
-    "postinstall": "yarn build"
+    "postinstall": "yarn build",
+    "reset:admin": "node scripts/reset-admin.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.6",

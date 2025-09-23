@@ -54,7 +54,7 @@ async function init() {
 
   await run(`CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sender_device_id TEXT NOT NULL,
+    sender_device_id TEXT,
     text TEXT,
     created_at INTEGER NOT NULL,
     FOREIGN KEY(sender_device_id) REFERENCES devices(device_id) ON DELETE SET NULL
@@ -85,7 +85,43 @@ async function init() {
   )`);
   // schema migrations
   await ensureUserTokenVersionColumn();
+  await fixMessagesSenderDeviceIdConstraint();
   await ensureDefaultUser();
+}
+
+async function fixMessagesSenderDeviceIdConstraint() {
+  try {
+    // Check if we need to recreate the messages table to fix the constraint conflict
+    const tableInfo = await all('PRAGMA table_info(messages)');
+    const senderDeviceIdColumn = tableInfo.find(col => col.name === 'sender_device_id');
+
+    if (senderDeviceIdColumn && senderDeviceIdColumn.notnull === 1) {
+      // We need to recreate the table to allow NULL in sender_device_id
+
+      // First, create a backup table with the corrected schema
+      await run(`CREATE TABLE IF NOT EXISTS messages_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_device_id TEXT,
+        text TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(sender_device_id) REFERENCES devices(device_id) ON DELETE SET NULL
+      )`);
+
+      // Copy existing data
+      await run(`INSERT INTO messages_new (id, sender_device_id, text, created_at)
+                 SELECT id, sender_device_id, text, created_at FROM messages`);
+
+      // Drop the old table and rename the new one
+      await run('DROP TABLE messages');
+      await run('ALTER TABLE messages_new RENAME TO messages');
+
+      // Recreate the index
+      await run('CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC)');
+    }
+  } catch (e) {
+    // If migration fails, we'll log it but continue
+    console.error('Migration fixMessagesSenderDeviceIdConstraint failed:', e);
+  }
 }
 
 async function ensureDefaultUser() {

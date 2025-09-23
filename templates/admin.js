@@ -249,7 +249,11 @@
           const deviceId = btn.getAttribute('data-id');
           const ok = await showConfirm('确认删除该设备？');
           if (!ok) return;
-          const also = await showConfirm('是否同时删除该设备相关消息与文件？“确定”删除，“取消”保留');
+
+          // 添加小延迟确保前一个弹窗完全关闭
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+          const also = await showConfirm('是否同时删除该设备相关消息与文件？"确定"删除，"取消"保留');
           try {
             await api('/admin/device/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId, removeMessages: also }) });
             toast('已删除设备' + (also ? '并清理消息' : ''), 'success');
@@ -266,24 +270,44 @@
 
   async function renderMessages() {
     try {
-      const data = await api('/messages?limit=1000');
-      const items = data.messages || [];
+      const [msgsRes, devRes] = await Promise.all([
+        api('/messages?limit=1000'),
+        api('/devices')
+      ]);
+      const items = msgsRes.messages || [];
+      const devices = devRes.devices || [];
       const root = qs('#messageListAdmin');
       const searchBox = qs('#searchInput');
+      const deviceSel = qs('#deviceFilter');
+
+      const shortId = (id) => (id ? (String(id).slice(0,4)+'…'+String(id).slice(-4)) : '');
+      const deviceLabel = (d) => (d?.alias || (d?.device_id ? shortId(d.device_id) : '已删除设备'));
+
+      // populate device filter options
+      if (deviceSel) {
+        const options = ['<option value="">全部设备</option>'].concat(
+          devices.map(d => `<option value="${d.device_id}">${deviceLabel(d)}</option>`) 
+        );
+        deviceSel.innerHTML = options.join('');
+      }
       const renderList = () => {
         const q = (searchBox.value || '').toLowerCase().trim();
-        const filtered = q
-          ? items.filter(m => (m.text || '').toLowerCase().includes(q) || (m.files||[]).some(f => (f.original_name||'').toLowerCase().includes(q)))
-          : items;
+        const selectedDid = (deviceSel?.value || '').trim();
+        let filtered = items;
+        if (selectedDid) filtered = filtered.filter(m => (m.sender_device_id || '') === selectedDid);
+        if (q) {
+          filtered = filtered.filter(m => (m.text || '').toLowerCase().includes(q) || (m.files||[]).some(f => (f.original_name||'').toLowerCase().includes(q)));
+        }
         root.innerHTML = filtered.map(m => {
           const time = new Date(m.created_at).toLocaleString();
+          const sLabel = deviceLabel(m.sender);
           const files = (m.files||[]).map(f => `<div class=\"text-xs text-slate-600 flex items-center gap-2\">📎 ${f.original_name} <button class=\"btn pressable\" data-action=\"file-del\" data-id=\"${f.id}\">删除文件</button></div>`).join('');
           const preview = (m.text || '').slice(0, 80).replace(/</g,'&lt;').replace(/>/g,'&gt;');
           return `
             <div class=\"card p-3\" id=\"message-${m.id}\" data-mid=\"${m.id}\">
               <div class=\"flex items-start justify-between gap-3\">
                 <div class=\"min-w-0\">
-                  <div class=\"font-medium text-slate-800\">消息 #${m.id} · ${time}</div>
+                  <div class=\"font-medium text-slate-800\">消息 #${m.id} · ${time} · 设备：${sLabel}</div>
                   <div class=\"text-sm text-slate-700 break-words\">${preview || '<span class=\"text-slate-400\">(无文本)</span>'}</div>
                   ${files ? `<div class=\"mt-1 space-y-1\">${files}</div>` : ''}
                 </div>
@@ -326,6 +350,9 @@
       if (searchBox) {
         searchBox.removeEventListener('_search', ()=>{});
         searchBox.addEventListener('input', renderList);
+      }
+      if (deviceSel) {
+        deviceSel.addEventListener('change', renderList);
       }
       renderList();
     } catch (e) {
