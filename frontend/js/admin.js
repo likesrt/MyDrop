@@ -160,7 +160,7 @@
       const h = Math.max(120, Math.floor(vh * scale));
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(video, 0, 0, w, h);
       return detectQrFromCanvas(ctx, w, h);
     } catch (_) { return null; }
@@ -173,7 +173,7 @@
       if (scale < 1) { w = Math.floor(w * scale); h = Math.floor(h * scale); }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(bitmap, 0, 0, w, h);
       return detectQrFromCanvas(ctx, w, h);
     } catch (_) { return null; }
@@ -187,7 +187,7 @@
       if (scale < 1) { w = Math.floor(w * scale); h = Math.floor(h * scale); }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(img, 0, 0, w, h);
       return detectQrFromCanvas(ctx, w, h);
     } catch (_) { return null; }
@@ -229,6 +229,7 @@
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
+      try { input.setAttribute('capture', 'environment'); } catch (_) {}
       return new Promise((resolve) => {
         input.onchange = async () => {
           const f = input.files && input.files[0];
@@ -239,6 +240,7 @@
             if (!bitmap) {
               const img = new Image();
               img.onload = async () => {
+                try { if (img.decode) await img.decode(); } catch (_) {}
                 const code = await detectQrFromImage(img);
                 if (code) {
                   const remember = await chooseRemember();
@@ -267,34 +269,37 @@
     if (scanBtn) {
       scanBtn.addEventListener('click', async () => {
         try {
-          const perms = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          let stream = null;
+          try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } }); }
+          catch (_) { stream = await navigator.mediaDevices.getUserMedia({ video: true }); }
           const video = document.createElement('video');
           video.setAttribute('playsinline', '');
           video.playsInline = true;
           video.muted = true;
-          video.srcObject = perms;
+          video.srcObject = stream;
           try { await new Promise(r => video.addEventListener('loadedmetadata', r, { once: true })); } catch (_) {}
           try { await video.play(); } catch (_) {}
           const detector = ('BarcodeDetector' in window) ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
           let stopped = false;
           await Swal.fire({
             title: '扫描二维码',
-            html: '<div id="qrVideoWrap" class="w-full"><video id="qrVideo" autoplay playsinline class="w-full rounded"></video></div>',
+            html: '<div id="qrVideoWrap" class="w-full"><video id="qrVideo" autoplay playsinline class="w-full rounded" style="width:100%;max-height:60vh;background:#000;border-radius:.5rem"></video></div>',
             showCancelButton: true,
             confirmButtonText: '停止',
             didOpen: () => {
               const el = document.getElementById('qrVideo');
-              if (el) el.srcObject = perms;
-              (async function loop() {
+              if (el) el.srcObject = stream;
+              (function loop() {
                 const target = el || video;
-                while (!stopped) {
+                async function tick() {
+                  if (stopped) return;
                   try {
                     let codeText = null;
                     if (detector) {
                       try {
                         const codes = await detector.detect(target);
                         if (codes && codes.length) codeText = codes[0].rawValue || codes[0].rawText || '';
-                      } catch (_) { /* ignore */ }
+                      } catch (_) {}
                     }
                     if (!codeText) {
                       codeText = await detectQrFromVideo(target);
@@ -305,15 +310,15 @@
                         const remember = await chooseRemember();
                         await approveWithPayload(codeText, remember);
                       } finally { try { Swal.close(); } catch (_) {} }
-                      break;
+                      return;
                     }
                   } catch (_) {}
-                  // aim to succeed within ~1-2s: faster polling
-                  await new Promise(r => setTimeout(r, 80));
+                  requestAnimationFrame(tick);
                 }
+                requestAnimationFrame(tick);
               })();
             },
-            willClose: () => { stopped = true; try { perms.getTracks().forEach(t => t.stop()); } catch (_) {} }
+            willClose: () => { stopped = true; try { stream.getTracks().forEach(t => t.stop()); } catch (_) {} }
           });
         } catch (e) {
           // camera failed: do not fallback, show not supported
