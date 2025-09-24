@@ -614,7 +614,16 @@
         dl.addEventListener('click', async () => {
           try {
             const res = await fetch('/admin/logs/download');
-            if (!res.ok) { throw new Error('下载失败'); }
+            if (!res.ok) {
+              let errorMsg = '下载失败';
+              try {
+                const errorData = await res.json();
+                if (errorData && errorData.error) {
+                  errorMsg = errorData.error;
+                }
+              } catch (_) {}
+              throw new Error(errorMsg);
+            }
             const blob = await res.blob();
             const cd = res.headers.get('content-disposition') || '';
             let filename = 'logs.txt';
@@ -628,7 +637,7 @@
             setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch(_){} }, 2000);
             toast('已开始下载日志', 'success');
           } catch (e) {
-            toast('下载失败', 'error');
+            toast(e.message || '下载失败', 'error');
           }
         });
       }
