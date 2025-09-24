@@ -1,6 +1,7 @@
 # MyDrop
+> EDGE浏览器得Drop功能使用十分方便，靠驻侧边栏，聊天对话框，可以多端同步文字、图片和文件，储存依托得是账户自带的OneDrive,所以国内访问速度可想而知，于是有了这个项目。
 
-简洁的本地/内网临时传输与消息留存工具。后端基于 Node.js + Express，提供 HTTP API 与 WebSocket（/ws），前端为简易的静态页面与模块化 JS。
+> 简洁的本地/内网临时传输与消息留存工具。后端基于 Node.js + Express，提供 HTTP API 与 WebSocket（/ws），前端为简易的静态页面与模块化 JS。
 
 - 运行时：Node.js 18+（CommonJS）
 - 数据库：SQLite（单文件，默认位于项目根目录的 `database/sqlite.db`）
@@ -19,7 +20,7 @@ yarn install
 ```bash
 cp .env.example .env
 # 强烈建议修改 .env 中的 JWT_SECRET！
-# 构建 CSS 与 vendor
+# 构建静态资源
 yarn build
 
 # 启动
@@ -35,8 +36,8 @@ yarn start
 
 ```bash
 # 1) 克隆仓库并进入目录（请替换为你的仓库地址与目录名）
-git clone <你的仓库地址>
-cd <目录名>
+git clone https://github.com/likesrt/mydrop.git
+cd mydrop
 
 # 2)（可选）准备环境变量配置
 cp .env.example .env
@@ -82,7 +83,7 @@ docker-compose.yml
   yarn reset:admin
   ```
 
-## 环境变量（节选）
+## 环境变量
 
 - `PORT`：服务端口（默认 3000）
 - `HOST`：监听地址（默认 0.0.0.0）
@@ -103,4 +104,4 @@ docker-compose.yml
 
 ## 许可
 
-本项目采用 MIT License 授权，详见根目录 `LICENSE` 文件。
+MIT
