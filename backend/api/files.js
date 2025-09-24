@@ -131,6 +131,7 @@ function createFilesRouter(options) {
         const p = path.join(uploadDir, file.stored_name);
         try { await fs.promises.unlink(p); } catch (_) {}
         await db.deleteFile(fileId);
+        try { await db.incrementStat('cleaned_files_total', 1); } catch (_) {}
       }
 
       logger.info('admin.file.delete', { file_id: fileId });

@@ -38,6 +38,7 @@ function createMessagesRouter(options) {
   router.post('/admin/messages/clear', requireAuth, async (req, res) => {
     try {
       const files = await db.listAllFiles();
+      const msgCountBefore = await db.countMessages();
       try {
         for (const f of files) {
           const p = path.join(uploadDir, f.stored_name);
@@ -45,7 +46,12 @@ function createMessagesRouter(options) {
         }
       } catch (_) {}
 
-      await db.clearAllMessages();
+      const removedMsgs = await db.clearAllMessages();
+      try {
+        if (files && files.length) await db.incrementStat('cleaned_files_total', files.length);
+        const msgsToCount = removedMsgs || msgCountBefore || 0;
+        if (msgsToCount) await db.incrementStat('cleaned_messages_total', msgsToCount);
+      } catch (_) {}
       logger.info('admin.messages.clear', { cleared_messages: true, file_count: (files || []).length });
       res.json({ ok: true });
     } catch (err) {

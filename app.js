@@ -94,7 +94,7 @@ app.use('/templates', express.static(TEMPLATES_DIR));
 app.get('/sw.js', (req, res) => {
   res.type('application/javascript');
   res.set('Cache-Control', 'no-cache');
-  const sw = `// Generated Service Worker\n\nconst ASSET_VERSION = ${JSON.stringify(ASSET_VERSION)};\nconst CACHE_NAME = 'mydrop-static-v' + ASSET_VERSION;\nconst PRECACHE_URLS = [\n  '/',\n  '/admin',\n  '/static/tailwind.css',\n  '/static/favicon.svg',\n  '/static/vendor/marked.min.js',\n  '/static/vendor/dompurify.min.js',\n  '/static/vendor/sweetalert2.all.min.js',\n  '/static/vendor/sweetalert2.min.css',\n  '/index.css',\n  '/js/utils.js',\n  '/js/ui.js',\n  '/js/theme.js',\n  '/js/api.js',\n  '/js/templates.js',\n  '/js/render.js',\n  '/js/auth.js',\n  '/js/websocket.js',\n  '/js/editor.js',\n  '/js/chat.js',\n  '/js/app.js',\n  '/admin.js'\n];\n\nfunction withV(url) { try { const u = new URL(url, self.location.origin); u.searchParams.set('v', ASSET_VERSION); return u.toString(); } catch (e) { return url; } }\n\nself.addEventListener('install', (event) => {\n  event.waitUntil((async () => {\n    const cache = await caches.open(CACHE_NAME);\n    try {\n      // 静态资源使用带版本查询参数缓存；HTML 直接按路径缓存\n      const staticUrls = PRECACHE_URLS.filter(u => u.startsWith('/static/') || u.startsWith('/js/') || u === '/index.css' || u === '/admin.js');\n      const htmlUrls = PRECACHE_URLS.filter(u => u === '/' || u === '/admin');\n      await cache.addAll(staticUrls.map(withV).concat(htmlUrls));\n    } catch (_) {}\n    self.skipWaiting();\n  })());\n});\n\nself.addEventListener('activate', (event) => {\n  event.waitUntil((async () => {\n    const keys = await caches.keys();\n    await Promise.all(keys.filter(k => k.startsWith('mydrop-static-v') && k !== CACHE_NAME).map(k => caches.delete(k)));\n    self.clients.claim();\n  })());\n});\n\nself.addEventListener('fetch', (event) => {\n  const req = event.request;\n  if (req.method !== 'GET') return;\n  const url = new URL(req.url);\n  if (url.origin !== self.location.origin) return;\n  const p = url.pathname;\n  const isDoc = req.mode === 'navigate' || p === '/' || p === '/admin';\n  const isStatic = p.startsWith('/static/') || p.startsWith('/js/') || p === '/index.css' || p === '/admin.js' || p.startsWith('/templates/components/');\n  if (!(isDoc || isStatic)) return;\n  event.respondWith((async () => {\n    const cacheKey = isStatic ? withV(url.toString()) : url.toString();\n    const cache = await caches.open(CACHE_NAME);\n    const cached = await cache.match(cacheKey, { ignoreSearch: !isStatic ? true : false });\n    if (cached) return cached;\n    try {\n      const res = await fetch(cacheKey, { credentials: 'same-origin' });\n      if (res && res.status === 200) { try { await cache.put(cacheKey, res.clone()); } catch (_) {} }\n      return res;\n    } catch (err) {\n      const any = await cache.match(url.toString(), { ignoreSearch: true });\n      if (any) return any;\n      throw err;\n    }\n  })());\n});\n`;
+  const sw = `// Generated Service Worker\n\nconst ASSET_VERSION = ${JSON.stringify(ASSET_VERSION)};\nconst CACHE_NAME = 'mydrop-static-v' + ASSET_VERSION;\nlet BUST_TS = null;\nconst PRECACHE_URLS = [\n  '/',\n  '/admin',\n  '/static/tailwind.css',\n  '/static/favicon.svg',\n  '/static/vendor/marked.min.js',\n  '/static/vendor/dompurify.min.js',\n  '/static/vendor/sweetalert2.all.min.js',\n  '/static/vendor/sweetalert2.min.css',\n  '/index.css',\n  '/js/utils.js',\n  '/js/ui.js',\n  '/js/theme.js',\n  '/js/api.js',\n  '/js/templates.js',\n  '/js/render.js',\n  '/js/auth.js',\n  '/js/websocket.js',\n  '/js/editor.js',\n  '/js/chat.js',\n  '/js/app.js',\n  '/admin.js'\n];\n\nfunction withV(url) { try { const u = new URL(url, self.location.origin); u.searchParams.set('v', ASSET_VERSION); if (BUST_TS) u.searchParams.set('r', BUST_TS); return u.toString(); } catch (e) { return url; } }\n\nself.addEventListener('install', (event) => {\n  event.waitUntil((async () => {\n    const cache = await caches.open(CACHE_NAME);\n    try {\n      // 静态资源使用带版本查询参数缓存；HTML 直接按路径缓存\n      const staticUrls = PRECACHE_URLS.filter(u => u.startsWith('/static/') || u.startsWith('/js/') || u === '/index.css' || u === '/admin.js');\n      const htmlUrls = PRECACHE_URLS.filter(u => u === '/' || u === '/admin');\n      await cache.addAll(staticUrls.map(withV).concat(htmlUrls));\n    } catch (_) {}\n    self.skipWaiting();\n  })());\n});\n\nself.addEventListener('activate', (event) => {\n  event.waitUntil((async () => {\n    const keys = await caches.keys();\n    await Promise.all(keys.filter(k => k.startsWith('mydrop-static-v') && k !== CACHE_NAME).map(k => caches.delete(k)));\n    self.clients.claim();\n  })());\n});\n\nself.addEventListener('message', (event) => {\n  try {\n    const data = event && event.data ? event.data : {};\n    if (data && data.type === 'SKIP_WAITING') { self.skipWaiting(); }\n    if (data && data.type === 'BUST_FETCH') { BUST_TS = String(Date.now()); }\n  } catch (_) {}\n});\n\nself.addEventListener('fetch', (event) => {\n  const req = event.request;\n  if (req.method !== 'GET') return;\n  const url = new URL(req.url);\n  if (url.origin !== self.location.origin) return;\n  const p = url.pathname;\n  const isDoc = req.mode === 'navigate' || p === '/' || p === '/admin';\n  const isStatic = p.startsWith('/static/') || p.startsWith('/js/') || p === '/index.css' || p === '/admin.js' || p.startsWith('/templates/components/');\n  if (!(isDoc || isStatic)) return;\n  event.respondWith((async () => {\n    const cacheKey = isStatic ? withV(url.toString()) : url.toString();\n    const cache = await caches.open(CACHE_NAME);\n    const cached = await cache.match(cacheKey, { ignoreSearch: !isStatic ? true : false });\n    if (cached) return cached;\n    try {\n      const res = await fetch(cacheKey, { credentials: 'same-origin' });\n      if (res && res.status === 200) { try { await cache.put(cacheKey, res.clone()); } catch (_) {} }\n      return res;\n    } catch (err) {\n      const any = await cache.match(url.toString(), { ignoreSearch: true });\n      if (any) return any;\n      throw err;\n    }\n  })());\n});\n`;
   res.send(sw);
 });
 
@@ -235,6 +235,8 @@ function scheduleCleanup() {
   const runOnce = async () => {
     try {
       let removedFiles = 0;
+      let removedMessages = 0;
+      let removedDevices = 0;
       if (MESSAGE_TTL_DAYS > 0) {
         const cutoff = Date.now() - MESSAGE_TTL_DAYS * 24 * 60 * 60 * 1000;
         try {
@@ -244,13 +246,18 @@ function scheduleCleanup() {
             try { await fs.promises.unlink(p); removedFiles++; } catch (_) {}
           }
         } catch (_) {}
-        await db.deleteMessagesOlderThan(cutoff);
-        logger.info('cleanup.messages', { cutoff, removed_files: removedFiles });
+        try { removedMessages = await db.deleteMessagesOlderThan(cutoff); } catch (_) { removedMessages = 0; }
+        logger.info('cleanup.messages', { cutoff, removed_files: removedFiles, removed_messages: removedMessages });
+        try {
+          if (removedFiles > 0) await db.incrementStat('cleaned_files_total', removedFiles);
+          if (removedMessages > 0) await db.incrementStat('cleaned_messages_total', removedMessages);
+        } catch (_) {}
       }
       if (DEVICE_INACTIVE_DAYS > 0) {
         const beforeTs = Date.now() - DEVICE_INACTIVE_DAYS * 24 * 60 * 60 * 1000;
-        await db.deleteInactiveDevices(beforeTs);
-        logger.info('cleanup.devices', { before: beforeTs });
+        try { removedDevices = await db.deleteInactiveDevices(beforeTs); } catch (_) { removedDevices = 0; }
+        logger.info('cleanup.devices', { before: beforeTs, removed_devices: removedDevices });
+        try { if (removedDevices > 0) await db.incrementStat('cleaned_devices_total', removedDevices); } catch (_) {}
       }
     } catch (e) {
       logger.error('cleanup.error', { err: e });

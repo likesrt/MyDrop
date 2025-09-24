@@ -89,6 +89,7 @@ async function init() {
   await ensureUser2FAColumns();
   await ensureWebAuthnTables();
   await fixMessagesSenderDeviceIdConstraint();
+  await ensureAppMetaTable();
   await ensureDefaultUser();
 }
 
@@ -310,11 +311,13 @@ async function listFilesForOldMessages(cutoffTs) {
 }
 
 async function deleteMessagesOlderThan(cutoffTs) {
-  await run('DELETE FROM messages WHERE created_at < ?', [cutoffTs]);
+  const res = await run('DELETE FROM messages WHERE created_at < ?', [cutoffTs]);
+  return (res && typeof res.changes === 'number') ? res.changes : 0;
 }
 
 async function deleteInactiveDevices(beforeTs) {
-  await run('DELETE FROM devices WHERE last_seen_at < ?', [beforeTs]);
+  const res = await run('DELETE FROM devices WHERE last_seen_at < ?', [beforeTs]);
+  return (res && typeof res.changes === 'number') ? res.changes : 0;
 }
 
 // Admin utilities
@@ -324,7 +327,8 @@ async function listAllFiles() {
 
 async function clearAllMessages() {
   // Due to ON DELETE CASCADE on files(message_id), deleting messages clears file rows.
-  await run('DELETE FROM messages');
+  const res = await run('DELETE FROM messages');
+  return (res && typeof res.changes === 'number') ? res.changes : 0;
 }
 
 // Users
@@ -393,6 +397,43 @@ async function countWebAuthnCredentials(userId) {
   return row ? row.c : 0;
 }
 
+// App meta and stats
+async function ensureAppMetaTable() {
+  await run(`CREATE TABLE IF NOT EXISTS app_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )`);
+}
+
+async function getMeta(key, defaultVal = null) {
+  const row = await get('SELECT value FROM app_meta WHERE key = ?', [key]);
+  if (!row) return defaultVal;
+  return row.value;
+}
+
+async function setMeta(key, value) {
+  await run('INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', [key, String(value)]);
+}
+
+async function incrementStat(key, by = 1) {
+  const curr = parseInt(await getMeta(key, '0'), 10) || 0;
+  const next = curr + (by | 0);
+  await setMeta(key, String(next));
+  return next;
+}
+
+async function getStats() {
+  const keys = ['cleaned_files_total', 'cleaned_messages_total', 'cleaned_devices_total'];
+  const out = {};
+  for (const k of keys) { out[k] = parseInt(await getMeta(k, '0'), 10) || 0; }
+  return out;
+}
+
+async function countMessages() {
+  const row = await get('SELECT COUNT(1) as c FROM messages');
+  return row ? row.c : 0;
+}
+
 module.exports = {
   init,
   ensureDefaultUser,
@@ -428,5 +469,11 @@ module.exports = {
   updateWebAuthnCounter,
   deleteWebAuthnCredential,
   countWebAuthnCredentials,
+  // app meta & stats
+  getMeta,
+  setMeta,
+  incrementStat,
+  getStats,
+  countMessages,
   // users
 };
