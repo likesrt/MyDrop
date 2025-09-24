@@ -1,5 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
+let QRCode;
+try { QRCode = require('qrcode'); } catch (_) { QRCode = null; }
 const { logger } = require('../services/logger');
 const { signJWT, verifyJWT, verifyPassword, hashPassword, verifyTOTP, generateTOTPSecret, b64urlToBuffer } = require('../services/auth');
 
@@ -245,6 +247,20 @@ function createAuthRouter(options) {
     } catch (err) {
       logger.error('mfa.totp.enable.error', { err });
       res.status(500).json({ error: '启用失败' });
+    }
+  });
+
+  // TOTP QR (SVG) - for otpauth URI
+  router.get('/mfa/totp/qr', requireAuth, async (req, res) => {
+    try {
+      if (!QRCode) return res.status(500).send('QR unavailable');
+      const uri = (req.query.otpauth || '').toString();
+      if (!uri.startsWith('otpauth://')) return res.status(400).send('Bad request');
+      const svg = await QRCode.toString(uri, { type: 'svg', margin: 0, width: 256 });
+      res.type('image/svg+xml').send(svg);
+    } catch (err) {
+      logger.error('mfa.totp.qr.error', { err });
+      res.status(500).send('QR failed');
     }
   });
 

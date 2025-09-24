@@ -7,7 +7,7 @@ const { hashPassword } = require('../backend/services/auth');
 
 require('dotenv').config();
 
-const DB_PATH = path.join(__dirname, '..', 'sqlite.db');
+const DB_PATH = path.join(__dirname, '..', 'backend', 'services', 'sqlite.db');
 
 function run(db, sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -34,13 +34,17 @@ async function main() {
     const row = await get(db, 'SELECT id FROM users ORDER BY id ASC LIMIT 1');
     const pw = hashPassword('admin');
     if (row && row.id) {
-      await run(db, 'UPDATE users SET username = ?, password_hash = ?, is_default_password = 1, updated_at = ?, token_version = COALESCE(token_version, 0) + 1 WHERE id = ?', ['admin', pw, now, row.id]);
+      await run(db, 'UPDATE users SET username = ?, password_hash = ?, is_default_password = 1, updated_at = ?, token_version = COALESCE(token_version, 0) + 1, totp_secret = NULL, totp_enabled = 0 WHERE id = ?', ['admin', pw, now, row.id]);
+      try {
+        await run(db, 'DELETE FROM webauthn_credentials WHERE user_id = ?', [row.id]);
+      } catch (_) {}
       console.log('User reset successful: username=admin, password=admin');
     } else {
-      await run(db, 'INSERT INTO users (username, password_hash, is_default_password, created_at, updated_at, token_version) VALUES (?, ?, 1, ?, ?, 0)', ['admin', pw, now, now]);
+      await run(db, 'INSERT INTO users (username, password_hash, is_default_password, created_at, updated_at, token_version, totp_secret, totp_enabled) VALUES (?, ?, 1, ?, ?, 0, NULL, 0)', ['admin', pw, now, now]);
       console.log('User created: username=admin, password=admin');
     }
     console.log('All existing tokens have been invalidated.');
+    console.log('TOTP and WebAuthn credentials cleared.');
   } catch (err) {
     console.error('Failed to reset admin:', err.message || err);
     process.exitCode = 1;

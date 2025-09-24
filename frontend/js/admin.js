@@ -131,7 +131,7 @@
           const begun = await api('/mfa/totp/begin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
           const secret = begun.secret;
           const otpauth = begun.otpauth;
-          await Swal.fire({ title: '在认证器中添加账号', html: `<div class="text-left text-sm"><div class="mb-2">密钥：<code>${secret}</code></div><div class="break-all">URI：<code>${otpauth}</code></div><div class="mt-2 text-slate-500">提示：复制密钥到您的认证器，随后输入显示的6位验证码。</div></div>`, confirmButtonText: '我已添加，下一步' });
+          await Swal.fire({ title: '在认证器中添加账号', html: `<div class="text-left text-sm"><div class="mx-auto" style="width:220px"><img src="/mfa/totp/qr?otpauth=${encodeURIComponent(otpauth)}" alt="QR"/></div><div class="mt-3">密钥：<code>${secret}</code></div><div class="break-all">URI：<code>${otpauth}</code></div><div class="mt-2 text-slate-500">提示：扫描二维码或复制密钥到您的认证器，随后输入显示的6位验证码。</div></div>`, confirmButtonText: '我已添加，下一步' });
           const { value: code } = await Swal.fire({ title: '输入验证码', input: 'text', inputAttributes: { inputmode: 'numeric', autocapitalize: 'off', autocorrect: 'off' }, showCancelButton: true, confirmButtonText: '启用', cancelButtonText: '取消' });
           if (!code) return;
           await api('/mfa/totp/enable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ secret, code }) });
