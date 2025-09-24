@@ -30,34 +30,40 @@ yarn start
 - 默认监听 `PORT=3000`，`HOST=0.0.0.0`
 - 首次启动会自动创建 `database/`、`uploads/`、`logs/` 目录（如不存在）
 
-## Docker/Compose 部署
+## Docker/Compose 部署（推荐）
 
-推荐使用 Docker 部署，步骤简单、镜像体积小且默认带持久化挂载。
+推荐直接使用预构建镜像（GHCR，多架构支持 amd64/arm64），无需克隆仓库：
 
 ```bash
-# 1) 克隆仓库并进入目录（请替换为你的仓库地址与目录名）
-git clone https://github.com/likesrt/mydrop.git
-cd mydrop
+# 1) 创建部署目录并进入
+mkdir mydrop && cd mydrop
 
-# 2) 准备环境变量与 Compose 配置
-cp .env.example .env
-cp docker-compose.example.yml docker-compose.yml
-# 强烈建议修改 .env 中的 JWT_SECRET
+# 2) 下载环境变量与 Compose 模板
+wget -O .env https://raw.githubusercontent.com/likesrt/MyDrop/refs/heads/main/.env.example
+wget -O docker-compose.yml https://raw.githubusercontent.com/likesrt/MyDrop/refs/heads/main/docker-compose.example.yml
 
-# 3) 首次构建并后台运行（后续更新仅需 pull + up -d）
-docker compose up -d --build
 
-# 4) 常用操作
-docker compose logs -f    # 查看日志
-docker compose down       # 停止容器
+# 3) 强烈建议编辑 .env，设置一个强随机的 JWT_SECRET
+
+# 4) 可选：创建持久化目录（也可交由 Docker 自动创建）
+mkdir -p uploads logs database
+
+# 5) 启动（默认拉取 main 稳定镜像：latest）
+docker compose up -d
+
+# 6) 常用操作
+docker compose pull        # 拉取更新
+docker compose up -d       # 应用更新并后台运行
+docker compose logs -f     # 查看日志
+docker compose down        # 停止容器
 ```
 
 - 数据与日志持久化（绑定挂载）
-  - `./database:/app/database`（SQLite 主库与 WAL/SHM）
+  - `./database:/app/database`（SQLite与 WAL/SHM）
   - `./uploads:/app/uploads`
   - `./logs:/app/logs`
 - 端口映射：仅一个变量 `PORT`。
-  - 在 `.env` 修改 `PORT=8080` → 发布为 `8080:8080`（容器也监听 8080）。
+  - 在 `.env` 修改 `PORT=8080` → 发布为 `8080:8080`。
   - 仅本机访问：在 `docker-compose.yml` 注释处启用 `127.0.0.1:${PORT:-3000}:${PORT:-3000}`。
 
 
@@ -106,7 +112,7 @@ docker-compose.example.yml
   - 同步配置：
     - 对比 `docker-compose.example.yml` 与本地 `docker-compose.yml`，必要时合并或执行 `cp docker-compose.example.yml docker-compose.yml` 并恢复你的自定义端口等改动；
     - 查看 `.env.example` 是否新增变量或说明，将需要的项补充到你的 `.env`（如 `PORT`、`SQLITE_JOURNAL_MODE`）。
-  - 重建并启动：`docker compose up -d --build`
+  - 拉取并启动：`docker compose pull && docker compose up -d`
   - 验证：`docker compose logs -f` 观察启动日志；访问 `http://<主机>:<PORT>`。
 
 - 兼容性提示：

@@ -1,15 +1,13 @@
-# 简洁的多阶段构建（builder + runner）
-# - 使用 1ms 基础镜像加速拉取
-# - APK 使用阿里云镜像源；NPM 使用 npmmirror
+# 最小化多阶段构建的 Dockerfile（MyDrop）
+# - builder 阶段：安装构建依赖与完整依赖，构建前端静态资源
+# - runner 阶段：仅包含生产依赖与运行所需文件，镜像更小更安全
 
-FROM docker.1ms.run/library/node:20-alpine AS builder
+FROM node:20-alpine AS builder
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 WORKDIR /app
 
 # 为原生模块准备编译工具（例如 sqlite3 在 Alpine 上需要）
-RUN sed -i -e 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.aliyun.com/alpine#g' /etc/apk/repositories \
-  && apk add --no-cache python3 make g++ \
-  && npm config set registry https://registry.npmmirror.com \
-  && npm config set disturl https://npmmirror.com/mirrors/node
+RUN apk add --no-cache python3 make g++
 
 # 安装依赖（包含 dev 依赖以便构建）
 COPY package.json ./
@@ -24,7 +22,8 @@ RUN npx tailwindcss -i frontend/styles/tailwind.css -o frontend/templates/static
   && npm prune --omit=dev \
   && npm cache clean --force
 
-FROM docker.1ms.run/library/node:20-alpine AS runner
+
+FROM node:20-alpine AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 
@@ -39,9 +38,7 @@ COPY --from=builder --chown=node:node /app/.env.example ./.env.example
 
 # 创建运行期可写目录（上传、日志、数据库）
 # 运行期准备：安装 su-exec，用于入口脚本降权到 node 用户
-# 切换 APK 镜像源，以便安装 su-exec
-RUN sed -i -e 's#https://dl-cdn.alpinelinux.org/alpine#https://mirrors.aliyun.com/alpine#g' /etc/apk/repositories \
-  && apk add --no-cache su-exec \
+RUN apk add --no-cache su-exec \
   && mkdir -p uploads logs database \
   && chown -R node:node uploads logs database
 
