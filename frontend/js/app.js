@@ -23,9 +23,15 @@ async function replaceWithFade(html) {
   try { app.style.transition = 'opacity .16s ease'; } catch (_) {}
   try { app.style.opacity = '0'; } catch (_) {}
   // 下一帧替换内容，再下一帧淡入，避免布局叠加导致的跳动
-  requestAnimationFrame(() => {
-    app.innerHTML = html;
-    requestAnimationFrame(() => { try { app.style.opacity = '1'; } catch (_) {} });
+  await new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      app.innerHTML = html;
+      requestAnimationFrame(() => {
+        try { app.style.opacity = '1'; } catch (_) {}
+        // 再下一帧确保 DOM 可查询
+        requestAnimationFrame(resolve);
+      });
+    });
   });
 }
 
