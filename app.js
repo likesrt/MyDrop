@@ -317,11 +317,8 @@ function printStartupBanner() {
       `- Node 版本：${process.version} · 平台：${process.platform}/${process.arch} · 主机名：${os.hostname()}`,
     ].filter(Boolean);
 
-    // Console banner
-    const banner = '
-' + lines.map(s => `[MyDrop] ${s}`).join('
-') + '
-';
+	    // Console banner
+	    const banner = '\n' + lines.map((s) => `[MyDrop] ${s}`).join('\n') + '\n';
     try { console.log(banner); } catch (_) {}
 
     // Structured log
