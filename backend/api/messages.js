@@ -25,9 +25,22 @@ function createMessagesRouter(options) {
       const full = await db.getMessage(messageId);
       if (!full) return res.status(404).json({ error: '消息不存在' });
 
+      // 删除关联文件（磁盘 + 统计）
+      let removedFiles = 0;
+      try {
+        const files = Array.isArray(full.files) ? full.files : [];
+        for (const f of files) {
+          try { await fs.promises.unlink(path.join(uploadDir, f.stored_name)); removedFiles++; } catch (_) {}
+        }
+      } catch (_) {}
+
       await db.deleteMessage(messageId);
-      logger.info('admin.message.delete', { message_id: messageId });
-      res.json({ ok: true });
+      try {
+        await db.incrementStat('cleaned_messages_total', 1);
+        if (removedFiles > 0) await db.incrementStat('cleaned_files_total', removedFiles);
+      } catch (_) {}
+      logger.info('admin.message.delete', { message_id: messageId, removed_files: removedFiles });
+      res.json({ ok: true, removed_files: removedFiles });
     } catch (err) {
       logger.error('admin.message.delete.error', { err });
       res.status(500).json({ error: '删除消息失败' });
