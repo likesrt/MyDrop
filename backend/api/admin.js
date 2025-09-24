@@ -111,6 +111,9 @@ function createAdminRouter(options) {
   // Download log file (if configured)
   router.get('/admin/logs/download', requireAuth, async (req, res) => {
     try {
+      // demo分支：禁用日志下载功能
+      return res.status(403).json({ error: '演示服务器已禁用日志下载功能' });
+
       const LOG_FILE = process.env.LOG_FILE || '';
       if (!LOG_FILE) return res.status(400).json({ error: '未配置日志文件' });
       const abs = path.isAbsolute(LOG_FILE) ? LOG_FILE : path.join(process.cwd(), LOG_FILE);
