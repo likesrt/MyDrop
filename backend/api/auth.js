@@ -321,7 +321,7 @@ function createAuthRouter(options) {
     }
   });
 
-  // QR SVG image for the scan URL
+  // QR SVG image encoding parameters (not a URL)
   router.get('/login/qr/svg', async (req, res) => {
     try {
       if (!QRCode) return res.status(500).send('QR unavailable');
@@ -331,9 +331,8 @@ function createAuthRouter(options) {
       if (!rid || !code || !sess) return res.status(404).send('Not found');
       if (sess.consumed || (sess.expiresAt && sess.expiresAt < now())) return res.status(410).send('Expired');
       if (sess.codeHash !== hashCode(code)) return res.status(400).send('Bad request');
-      const origin = getExpectedOrigin(req);
-      const url = `${origin}/login/qr/scan?rid=${encodeURIComponent(rid)}&code=${encodeURIComponent(code)}`;
-      const svg = await QRCode.toString(url, { type: 'svg', margin: 0, width: 256 });
+      const payload = JSON.stringify({ t: 'mydrop.qr', v: 1, rid, code });
+      const svg = await QRCode.toString(payload, { type: 'svg', margin: 0, width: 256 });
       res.type('image/svg+xml').send(svg);
     } catch (err) {
       logger.error('qr.svg.error', { err });
@@ -341,7 +340,31 @@ function createAuthRouter(options) {
     }
   });
 
-  // Scanning endpoint (must be from an authenticated, already-logged-in device)
+  // Scanning approve endpoint (must be from an authenticated, already-logged-in device)
+  router.post('/login/qr/approve', requireAuth, async (req, res) => {
+    try {
+      const { rid, code, remember } = req.body || {};
+      const sess = qrSessions.get(String(rid || ''));
+      if (!sess) return res.status(404).json({ error: '会话不存在' });
+      if (sess.consumed) return res.status(400).json({ error: '会话已使用' });
+      if (sess.expiresAt && sess.expiresAt < now()) return res.status(400).json({ error: '会话已过期' });
+      if (sess.codeHash !== hashCode(String(code || ''))) return res.status(400).json({ error: '无效参数' });
+
+      const user = await db.getUserById(req.user.id);
+      if (!user || !user.qr_login_enabled) return res.status(403).json({ error: '扫码登录已关闭' });
+
+      sess.approvedBy = user.id;
+      if (typeof remember !== 'undefined') sess.remember = !!remember;
+      qrSessions.set(String(rid), sess);
+      logger.info('qr.approve.api', { rid: String(rid), user_id: user.id, remember: !!sess.remember });
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error('qr.approve.error', { err });
+      res.status(500).json({ error: '批准失败' });
+    }
+  });
+
+  // Legacy GET scanning endpoint (still supported)
   router.get('/login/qr/scan', requireAuth, async (req, res) => {
     try {
       const rid = (req.query.rid || '').toString();
@@ -356,6 +379,7 @@ function createAuthRouter(options) {
 
       // Approve the session
       sess.approvedBy = user.id;
+      // no remember provided in legacy flow
       qrSessions.set(rid, sess);
       logger.info('qr.approved', { rid, user_id: user.id });
       res.send('<!doctype html><meta charset="utf-8"/><title>已批准</title><div style="font-family:sans-serif;padding:2rem;">登录请求已批准，可以回到新设备继续操作。</div>');
@@ -401,9 +425,10 @@ function createAuthRouter(options) {
       await db.upsertDevice(String(deviceId), (alias || null), req.headers['user-agent'] || '');
       const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
       const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
-      const expiresSec = remember ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
+      const rememberFinal = (typeof sess.remember === 'boolean') ? !!sess.remember : !!remember;
+      const expiresSec = rememberFinal ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
       const token = signJWT({ sub: user.id, username: user.username, device_id: String(deviceId), tv: user.token_version || 0 }, jwtSecret, expiresSec);
-      const cookieMaxAge = (remember && days > 0) ? (expiresSec * 1000) : null;
+      const cookieMaxAge = (rememberFinal && days > 0) ? (expiresSec * 1000) : null;
       res.cookie(tokenCookieName, token, cookieOptsFor(req, cookieMaxAge));
       sess.consumed = true;
       qrSessions.set(String(rid), sess);

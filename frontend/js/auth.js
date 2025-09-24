@@ -141,6 +141,10 @@ function bindLogin() {
     });
 
     if (qrBtn) {
+      try {
+        const ok = !!(window.MyDropState && window.MyDropState.config && window.MyDropState.config.qrLoginEnabled);
+        if (!ok) qrBtn.classList.add('hidden');
+      } catch (_) {}
       qrBtn.addEventListener('click', async () => {
         try {
           const start = await window.MyDropAPI.api('/login/qr/start', { method: 'POST' });

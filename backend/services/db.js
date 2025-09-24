@@ -461,6 +461,7 @@ async function countMessages() {
 module.exports = {
   init,
   ensureDefaultUser,
+  getFirstUser: async function () { try { return await get('SELECT * FROM users LIMIT 1'); } catch (_) { return null; } },
   // devices
   upsertDevice,
   getDevice,

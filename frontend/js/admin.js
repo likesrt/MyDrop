@@ -105,6 +105,7 @@
     // MFA + Passkeys + QR login toggle
     try { await setupMFAAndPasskeys(); } catch (_) {}
     try { setupQrLoginToggle(); } catch (_) {}
+    try { setupQrApproveUI(); } catch (_) {}
   }
 
   function setupQrLoginToggle() {
@@ -123,6 +124,105 @@
     if (btnOff) btnOff.addEventListener('click', async () => {
       try { await api('/settings/qr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: false }) }); toast('已关闭扫码登录', 'success'); refresh(); } catch (e) { toast(formatError(e, '操作失败'), 'error'); }
     });
+  }
+
+  function parseQrPayload(text) {
+    try {
+      const obj = JSON.parse(text);
+      if (obj && obj.rid && obj.code) return { rid: String(obj.rid), code: String(obj.code) };
+    } catch (_) {}
+    try {
+      const mRid = /(?:^|[?&#])rid=([^&]+)/i.exec(text);
+      const mCode = /(?:^|[?&#])code=([^&]+)/i.exec(text);
+      if (mRid && mCode) return { rid: decodeURIComponent(mRid[1]), code: decodeURIComponent(mCode[1]) };
+    } catch (_) {}
+    return null;
+  }
+
+  function setupQrApproveUI() {
+    const scanBtn = qs('#qrScanBtn');
+    const fileBtn = qs('#qrScanFromFileBtn');
+    const rememberEl = qs('#qrApproveRemember');
+
+    async function approveWithPayload(text) {
+      const payload = parseQrPayload(String(text || ''));
+      if (!payload) { toast('无法识别二维码内容', 'warn'); return; }
+      try {
+        await api('/login/qr/approve', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rid: payload.rid, code: payload.code, remember: !!(rememberEl && rememberEl.checked) })
+        });
+        toast('已授权登录请求，可在新设备继续', 'success');
+      } catch (e) {
+        toast(formatError(e, '授权失败'), 'error');
+      }
+    }
+
+    if (scanBtn && 'BarcodeDetector' in window) {
+      scanBtn.addEventListener('click', async () => {
+        try {
+          const perms = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          const video = document.createElement('video');
+          video.playsInline = true;
+          video.srcObject = perms;
+          await video.play();
+          const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+          let stopped = false;
+          await Swal.fire({
+            title: '扫描二维码',
+            html: '<div id="qrVideoWrap" class="w-full"><video id="qrVideo" autoplay playsinline class="w-full rounded"></video></div>',
+            showCancelButton: true,
+            confirmButtonText: '停止',
+            didOpen: () => {
+              const el = document.getElementById('qrVideo');
+              if (el) el.srcObject = perms;
+              (async function loop() {
+                while (!stopped) {
+                  try {
+                    const codes = await detector.detect(el || video);
+                    if (codes && codes.length) {
+                      stopped = true;
+                      try { await approveWithPayload(codes[0].rawValue || codes[0].rawText || ''); } finally {
+                        try { Swal.close(); } catch (_) {}
+                      }
+                      break;
+                    }
+                  } catch (_) {}
+                  await new Promise(r => setTimeout(r, 300));
+                }
+              })();
+            },
+            willClose: () => { stopped = true; try { perms.getTracks().forEach(t => t.stop()); } catch (_) {} }
+          });
+        } catch (e) {
+          toast('无法打开相机或当前浏览器不支持扫码', 'warn');
+        }
+      });
+    } else if (scanBtn) {
+      scanBtn.addEventListener('click', () => toast('当前浏览器不支持相机扫码', 'warn'));
+    }
+
+    if (fileBtn && 'BarcodeDetector' in window) {
+      fileBtn.addEventListener('click', async () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async () => {
+          const f = input.files && input.files[0];
+          if (!f) return;
+          try {
+            const img = await createImageBitmap(f);
+            const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+            const res = await detector.detect(img);
+            if (res && res.length) { await approveWithPayload(res[0].rawValue || res[0].rawText || ''); }
+            else toast('未识别到二维码', 'warn');
+          } catch (e) { toast('无法识别该图片', 'error'); }
+        };
+        input.click();
+      });
+    } else if (fileBtn) {
+      fileBtn.addEventListener('click', () => toast('当前浏览器不支持从图片识别二维码', 'warn'));
+    }
   }
 
   function bindTabs() {
