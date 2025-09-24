@@ -39,6 +39,7 @@ async function getTemplate(templatePath, data = {}) {
 // 预加载常用模板
 async function preloadTemplates() {
   const commonTemplates = [
+    'app-skeleton',
     'chat-layout',
     'login-form',
     'message-item',

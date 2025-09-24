@@ -24,6 +24,11 @@ const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const JWT_EXPIRES_DAYS = process.env.JWT_EXPIRES_DAYS ? parseInt(process.env.JWT_EXPIRES_DAYS, 10) : 7;
 const HEADER_AUTO_HIDE = /^(1|true|yes)$/i.test(process.env.HEADER_AUTO_HIDE || '');
+// Cleanup configuration
+const AUTO_CLEANUP_ENABLED = !/^false|0|no$/i.test(process.env.AUTO_CLEANUP_ENABLED || 'true');
+const CLEANUP_INTERVAL_MINUTES = process.env.CLEANUP_INTERVAL_MINUTES ? Math.max(1, parseInt(process.env.CLEANUP_INTERVAL_MINUTES, 10)) : 15;
+const MESSAGE_TTL_DAYS = process.env.MESSAGE_TTL_DAYS ? Math.max(0, parseInt(process.env.MESSAGE_TTL_DAYS, 10)) : 0; // 0 = disabled
+const DEVICE_INACTIVE_DAYS = process.env.DEVICE_INACTIVE_DAYS ? Math.max(0, parseInt(process.env.DEVICE_INACTIVE_DAYS, 10)) : 0; // 0 = disabled
 // PWA static asset version for SW cache-busting via query param
 let PKG_VERSION = '0.0.0';
 try { PKG_VERSION = require('./package.json').version || '0.0.0'; } catch (_) {}
@@ -38,6 +43,7 @@ async function boot() {
     server.listen(PORT, HOST, () => {
       logger.info('server.listen', { host: HOST, port: PORT });
     });
+    if (AUTO_CLEANUP_ENABLED) scheduleCleanup();
   } catch (e) {
     logger.error('db.init.failed', { err: e });
     process.exit(1);
@@ -202,3 +208,34 @@ process.on('unhandledRejection', (err) => {
 process.on('uncaughtException', (err) => {
   try { logger.error('uncaughtException', { err }); } catch (_) {}
 });
+
+// Periodic cleanup of old data and inactive devices
+function scheduleCleanup() {
+  const runOnce = async () => {
+    try {
+      let removedFiles = 0;
+      if (MESSAGE_TTL_DAYS > 0) {
+        const cutoff = Date.now() - MESSAGE_TTL_DAYS * 24 * 60 * 60 * 1000;
+        try {
+          const files = await db.listFilesForOldMessages(cutoff);
+          for (const f of files) {
+            const p = path.join(UPLOAD_DIR, f.stored_name);
+            try { if (fs.existsSync(p)) { fs.unlinkSync(p); removedFiles++; } } catch (_) {}
+          }
+        } catch (_) {}
+        await db.deleteMessagesOlderThan(cutoff);
+        logger.info('cleanup.messages', { cutoff, removed_files: removedFiles });
+      }
+      if (DEVICE_INACTIVE_DAYS > 0) {
+        const beforeTs = Date.now() - DEVICE_INACTIVE_DAYS * 24 * 60 * 60 * 1000;
+        await db.deleteInactiveDevices(beforeTs);
+        logger.info('cleanup.devices', { before: beforeTs });
+      }
+    } catch (e) {
+      logger.error('cleanup.error', { err: e });
+    }
+  };
+  // run once on boot (delayed slightly) and then at interval
+  setTimeout(runOnce, 10 * 1000).unref?.();
+  setInterval(runOnce, CLEANUP_INTERVAL_MINUTES * 60 * 1000).unref?.();
+}

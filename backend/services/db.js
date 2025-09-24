@@ -281,6 +281,19 @@ async function countFiles() {
   return row ? row.c : 0;
 }
 
+// Cleanup helpers
+async function listFilesForOldMessages(cutoffTs) {
+  return all('SELECT f.* FROM files f JOIN messages m ON f.message_id = m.id WHERE m.created_at < ? ORDER BY f.id ASC', [cutoffTs]);
+}
+
+async function deleteMessagesOlderThan(cutoffTs) {
+  await run('DELETE FROM messages WHERE created_at < ?', [cutoffTs]);
+}
+
+async function deleteInactiveDevices(beforeTs) {
+  await run('DELETE FROM devices WHERE last_seen_at < ?', [beforeTs]);
+}
+
 // Admin utilities
 async function listAllFiles() {
   return all('SELECT * FROM files ORDER BY id ASC');
@@ -373,9 +386,11 @@ module.exports = {
   listMessages,
   listMessagesByDevice,
   deleteMessage,
+  deleteMessagesOlderThan,
   addFile,
   getFile,
   listFilesByDevice,
+  listFilesForOldMessages,
   deleteFile,
   countFiles,
   listAllFiles,
