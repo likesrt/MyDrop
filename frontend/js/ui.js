@@ -137,7 +137,8 @@ window.MyDropUI = {
   showPrompt,
   copyToClipboard,
   setupAutoHideHeader,
-  showHint
+  showHint,
+  openImageLightbox
 };
 
 // 简易提示：底部堆叠提示，避免与顶部 Toast 冲突
@@ -260,5 +261,40 @@ function setupAutoHideHeader(enabled) {
 
     // 页面打开提示（使用去重 key；如已显示则不重复）
     try { toast('点击屏幕顶部显示设置栏', 'info', { position: 'top', timer: 2200, key: 'header-hint' }); } catch (_) {}
+  } catch (_) {}
+}
+
+// 简易图片灯箱
+function openImageLightbox(src, alt = '') {
+  try {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.left = '0';
+    overlay.style.top = '0';
+    overlay.style.right = '0';
+    overlay.style.bottom = '0';
+    overlay.style.background = 'rgba(0,0,0,.9)';
+    overlay.style.zIndex = '10000';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.cursor = 'zoom-out';
+    overlay.style.animation = 'fadeIn .12s ease';
+
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = alt || '';
+    img.style.maxWidth = '95vw';
+    img.style.maxHeight = '90vh';
+    img.style.objectFit = 'contain';
+    img.style.boxShadow = '0 20px 40px rgba(0,0,0,.45)';
+    img.style.borderRadius = '8px';
+    overlay.appendChild(img);
+
+    const close = () => { try { overlay.remove(); } catch (_) {} window.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    overlay.addEventListener('click', close);
+    window.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
   } catch (_) {}
 }

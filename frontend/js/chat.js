@@ -167,6 +167,16 @@ function bindChat() {
     const updateStick = () => { try { window.MyDropState.stickToBottom = window.MyDropUtils.isNearBottom(msgContainer, 80); } catch (_) {} };
     updateStick();
     msgContainer.addEventListener('scroll', updateStick);
+    // 图片灯箱：点击消息中的图片放大预览
+    msgContainer.addEventListener('click', (e) => {
+      const img = e.target && e.target.tagName === 'IMG' ? e.target : null;
+      if (!img) return;
+      // 仅响应消息列表中的图片
+      const root = img.closest('#messageList');
+      if (!root) return;
+      e.preventDefault();
+      try { window.MyDropUI.openImageLightbox(img.src, img.alt || ''); } catch (_) {}
+    });
   }
 
   const textInput = window.MyDropUtils.qs('#textInput');
