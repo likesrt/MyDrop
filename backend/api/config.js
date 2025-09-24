@@ -9,19 +9,20 @@ function createConfigRouter(options) {
     try {
       let qrEnabled = false;
       try { const user = await db.getFirstUser(); qrEnabled = !!(user && user.qr_login_enabled); } catch (_) {}
-      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { headerAutoHide: !!features.autoHideHeader, maxFiles: limits.maxFiles, fileSizeLimitMB: limits.fileSizeLimitMB };
+      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { headerAutoHide: !!features.autoHideHeader };
       res.json({
-        maxFiles: Number(cfg.maxFiles || limits.maxFiles) | 0,
-        fileSizeLimitMB: Number(cfg.fileSizeLimitMB || limits.fileSizeLimitMB) | 0,
+        // demo分支：限制默认上传配额，单文件 5MB，总计 50
+        maxFiles: 50,
+        fileSizeLimitMB: 5,
         headerAutoHide: !!cfg.headerAutoHide,
         assetVersion: features.assetVersion || null,
         qrLoginEnabled: !!qrEnabled,
       });
     } catch (_) {
-      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { headerAutoHide: !!features.autoHideHeader, maxFiles: limits.maxFiles, fileSizeLimitMB: limits.fileSizeLimitMB };
+      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { headerAutoHide: !!features.autoHideHeader };
       res.json({
-        maxFiles: Number(cfg.maxFiles || limits.maxFiles) | 0,
-        fileSizeLimitMB: Number(cfg.fileSizeLimitMB || limits.fileSizeLimitMB) | 0,
+        maxFiles: 50,
+        fileSizeLimitMB: 5,
         headerAutoHide: !!cfg.headerAutoHide,
         assetVersion: features.assetVersion || null,
         qrLoginEnabled: false,

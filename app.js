@@ -223,7 +223,8 @@ const apiRouter = createApiRouter({
   tokenCookieName: TOKEN_COOKIE,
   db,
   uploadDir: UPLOAD_DIR,
-  limits: { maxFiles: settings.getAllSync().maxFiles, fileSizeLimitMB: settings.getAllSync().fileSizeLimitMB },
+  // demo分支限制：默认单文件 5MB，总文件 50 个，避免滥用
+  limits: { maxFiles: 50, fileSizeLimitMB: 5 },
   broadcast: (message) => broadcastMessage(message),
   jwtSecret: JWT_SECRET,
   // Use settings service for dynamic values in routers

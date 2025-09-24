@@ -11,7 +11,9 @@ function createMessagesRouter(options) {
   router.get('/messages', requireAuth, async (req, res) => {
     const sinceId = req.query.sinceId ? parseInt(req.query.sinceId, 10) : null;
     const limit = req.query.limit ? Math.min(parseInt(req.query.limit, 10), 200) : 100;
-    const msgs = await db.listMessages(sinceId, limit);
+    const msgsAll = await db.listMessages(sinceId, limit);
+    // demo分支：仅返回当前设备发送的消息
+    const msgs = (msgsAll || []).filter(m => m && m.sender_device_id === req.device_id);
     res.json({ messages: msgs });
   });
 

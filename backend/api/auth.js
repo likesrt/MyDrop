@@ -176,10 +176,10 @@ function createAuthRouter(options) {
     res.json({ device, user: { username: user.username, needsPasswordChange: !!user.is_default_password, totpEnabled: !!user.totp_enabled, passkeyCount, qrLoginEnabled: !!user.qr_login_enabled } });
   });
 
-  // List devices
+  // List devices（demo分支：仅返回当前设备）
   router.get('/devices', requireAuth, async (req, res) => {
-    const devices = await db.listDevices();
-    res.json({ devices });
+    const device = await db.getDevice(req.device_id);
+    res.json({ devices: device ? [device] : [] });
   });
 
   // Update current device alias
