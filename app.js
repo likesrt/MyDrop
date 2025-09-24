@@ -44,6 +44,12 @@ async function boot() {
     // Initialize runtime settings
     settings.init(db);
     await settings.load();
+    // Apply initial log level
+    try {
+      const lv = String(settings.getAllSync().logLevel || 'info').toLowerCase();
+      const map = { debug: 10, info: 20, warn: 30, error: 40 };
+      if (logger && map[lv]) logger.level = map[lv];
+    } catch (_) {}
 
     // Helpful error handler for common listen failures (port in use, permission)
     server.on('error', (err) => {

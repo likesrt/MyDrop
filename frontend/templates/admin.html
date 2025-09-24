@@ -121,84 +121,84 @@
       <section id="tab-system" class="bg-white rounded shadow p-4 hidden">
         <h2 class="font-medium mb-3">系统设置</h2>
         <form id="systemForm" class="space-y-6">
-          <div>
-            <h3 class="font-medium mb-2">自动清理</h3>
+          <div class="settings-section">
+            <h3 class="section-title">自动清理</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm text-slate-600 mb-1">启用自动清理</label>
+                <label class="form-label">启用自动清理</label>
                 <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="autoCleanupEnabled" class="mr-1"> 启用周期性清理</label>
-                <p class="text-xs text-slate-500 mt-1">清理过期消息与其关联文件；与“消息保留天数”配合使用。</p>
+                <p class="form-help mt-1">启用后，将按“清理间隔（分钟）”定期执行：基于“消息保留天数”的过期清理，以及“未活跃设备清理（天）”的设备回收。</p>
               </div>
               <div>
-                <label class="block text-sm text-slate-600 mb-1">清理间隔（分钟）</label>
+                <label class="form-label">清理间隔（分钟）</label>
                 <div class="flex items-center gap-3">
                   <input type="number" name="cleanupIntervalMinutes" min="1" class="input w-40" placeholder="720" />
                   <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="cleanupIntervalAuto" class="mr-1"> 自动</label>
                 </div>
-                <p class="text-xs text-slate-500 mt-1">指定自动清理任务的执行频率。勾选“自动”时使用系统建议值（默认 720 分钟）。</p>
+                <p class="form-help mt-1">定时任务执行频率。勾选“自动”时使用系统建议值（默认 720 分钟）。</p>
               </div>
               <div>
-                <label class="block text-sm text-slate-600 mb-1">消息保留天数</label>
+                <label class="form-label">消息保留天数</label>
                 <input type="number" name="messageTtlDays" min="0" class="input" placeholder="90" />
-                <p class="text-xs text-slate-500 mt-1">自动删除早于该天数的消息及其关联文件；0 表示不删除。</p>
+                <p class="form-help mt-1">自动删除早于该天数的消息及其关联文件；0 表示不删除。</p>
               </div>
               <div>
-                <label class="block text-sm text-slate-600 mb-1">未活跃设备清理（天）</label>
+                <label class="form-label">未活跃设备清理（天）</label>
                 <input type="number" name="deviceInactiveDays" min="0" class="input" placeholder="90" />
-                <p class="text-xs text-slate-500 mt-1">删除超过该天数未活跃的设备；0 表示不删除。</p>
+                <p class="form-help mt-1">删除超过该天数未活跃的设备；0 表示不删除。</p>
               </div>
             </div>
           </div>
 
-          <div>
-            <h3 class="font-medium mb-2">上传与配额</h3>
+          <div class="settings-section">
+            <h3 class="section-title">上传与配额</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm text-slate-600 mb-1">单个文件大小上限（MB）</label>
+                <label class="form-label">单个文件大小上限（MB）</label>
                 <input type="number" name="fileSizeLimitMB" min="1" class="input" placeholder="20" />
-                <p class="text-xs text-slate-500 mt-1">超出将被拒绝上传。</p>
+                <p class="form-help mt-1">超出将被拒绝上传。</p>
               </div>
               <div>
-                <label class="block text-sm text-slate-600 mb-1">全局文件数量上限</label>
+                <label class="form-label">全局文件数量上限</label>
                 <input type="number" name="maxFiles" min="1" class="input" placeholder="1000" />
-                <p class="text-xs text-slate-500 mt-1">达到上限后继续上传会失败，需先删除旧文件。</p>
+                <p class="form-help mt-1">达到上限后继续上传会失败，需先删除旧文件。</p>
               </div>
             </div>
           </div>
 
-          <div>
-            <h3 class="font-medium mb-2">登录与前端</h3>
+          <div class="settings-section">
+            <h3 class="section-title">登录与前端</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm text-slate-600 mb-1">JWT 过期天数（记住我）</label>
+                <label class="form-label">JWT 过期天数（记住我）</label>
                 <input type="number" name="jwtExpiresDays" min="0" class="input" placeholder="7" />
-                <p class="text-xs text-slate-500 mt-1">勾选“记住我”后的登录有效期；0 表示永不过期（不建议）。</p>
+                <p class="form-help mt-1">勾选“记住我”后的登录有效期；0 表示永不过期（不建议）。</p>
               </div>
               <div>
-                <label class="block text-sm text-slate-600 mb-1">临时登录有效期（分钟）</label>
+                <label class="form-label">临时登录有效期（分钟）</label>
                 <input type="number" name="tempLoginTtlMinutes" min="1" class="input" placeholder="10" />
-                <p class="text-xs text-slate-500 mt-1">未勾选“记住我”时的有效期，同时采用会话 Cookie（关闭浏览器清除）。</p>
+                <p class="form-help mt-1">未勾选“记住我”时的有效期，同时采用会话 Cookie（关闭浏览器清除）。</p>
               </div>
               <div>
-                <label class="block text-sm text-slate-600 mb-1">移动端顶部栏自动隐藏</label>
+                <label class="form-label">移动端顶部栏自动隐藏</label>
                 <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="headerAutoHide" class="mr-1"> 启用</label>
-                <p class="text-xs text-slate-500 mt-1">开启后：顶部 50px 为唤起区域；10 秒无交互自动隐藏。</p>
+                <p class="form-help mt-1">开启后：顶部 50px 为唤起区域；10 秒无交互自动隐藏。</p>
               </div>
             </div>
           </div>
 
-          <div>
-            <h3 class="font-medium mb-2">日志</h3>
+          <div class="settings-section">
+            <h3 class="section-title">日志</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm text-slate-600 mb-1">日志级别</label>
-                <select name="logLevel" class="input">
+                <label class="form-label">日志级别</label>
+                <select name="logLevel" class="input select">
                   <option value="error">error</option>
                   <option value="warn">warn</option>
                   <option value="info">info</option>
                   <option value="debug">debug</option>
                 </select>
-                <p class="text-xs text-slate-500 mt-1">控制输出的详细程度；生产环境建议为 warn 或 error。</p>
+                <p class="form-help mt-1">控制输出的详细程度；生产环境建议为 warn 或 error。</p>
               </div>
             </div>
           </div>

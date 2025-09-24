@@ -384,12 +384,22 @@
       form.fileSizeLimitMB.value = (cfg.fileSizeLimitMB != null ? cfg.fileSizeLimitMB : '');
       form.maxFiles.value = (cfg.maxFiles != null ? cfg.maxFiles : '');
       if (form.logLevel) form.logLevel.value = (cfg.logLevel || 'warn');
+      const refreshAutoCleanupUI = () => {
+        const on = !!form.autoCleanupEnabled.checked;
+        form.cleanupIntervalAuto.disabled = !on;
+        form.cleanupIntervalMinutes.disabled = !on || !!form.cleanupIntervalAuto.checked;
+        form.messageTtlDays.disabled = !on;
+        form.deviceInactiveDays.disabled = !on;
+      };
+      refreshAutoCleanupUI();
+
       if (!form._bound) {
         form._bound = true;
         // Toggle auto interval disables minutes input
         form.cleanupIntervalAuto.addEventListener('change', () => {
-          form.cleanupIntervalMinutes.disabled = form.cleanupIntervalAuto.checked;
+          refreshAutoCleanupUI();
         });
+        form.autoCleanupEnabled.addEventListener('change', refreshAutoCleanupUI);
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
           const fd = new FormData(form);
