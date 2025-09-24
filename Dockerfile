@@ -36,10 +36,17 @@ COPY --from=builder --chown=node:node /app/scripts ./scripts
 COPY --from=builder --chown=node:node /app/.env.example ./.env.example
 
 # 创建运行期可写目录（上传、日志、数据库）
-RUN mkdir -p uploads logs database && chown -R node:node uploads logs database
+# 运行期准备：安装 su-exec，用于入口脚本降权到 node 用户
+RUN apk add --no-cache su-exec \
+  && mkdir -p uploads logs database \
+  && chown -R node:node uploads logs database
 
-# 使用非 root 用户运行以增强安全性
-USER node
+# 入口脚本：挂载卷会覆盖镜像内的权限，这里在容器启动时修正属主再降权
+COPY --chown=root:root docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# 以 root 进入入口脚本，随后切换为 node 用户运行应用
+USER root
 EXPOSE 3000
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "app.js"]
