@@ -67,10 +67,12 @@ function attachMediaLoadScroll() {
     basicsOk = true;
   } catch (err) {
     basicsOk = false;
+    // 首页静默处理：仅在超时时提示，其他错误（含未登录）不提示
     try {
       const isApiErr = err && err.name === 'ApiError';
-      const msg = isApiErr && err.status === 408 ? '请求超时，请稍后重试' : (isApiErr && err.message ? err.message : '请求失败');
-      window.MyDropUI.toast(msg, 'error');
+      if (isApiErr && err.status === 408) {
+        window.MyDropUI.toast('请求超时，请稍后重试', 'error');
+      }
     } catch (_) {}
   }
 
