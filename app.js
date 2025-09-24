@@ -1,4 +1,5 @@
 require('dotenv').config();
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -18,6 +19,27 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, path: '/ws' });
 
 // Config
+// Ensure strong JWT secret: if default example is detected, generate and persist to .env
+const DEFAULT_JWT = 'Starter-Twiddling-Glacier-Washout8-Pegboard-Unharmed-Snugly-Laborer';
+try {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === DEFAULT_JWT) {
+    const secret = crypto.randomBytes(48).toString('base64url');
+    // Update .env file on disk (create if missing)
+    const envPath = path.join(process.cwd(), '.env');
+    let content = '';
+    try { content = fs.readFileSync(envPath, 'utf8'); } catch (_) { content = ''; }
+    if (/^\s*JWT_SECRET\s*=\s*/m.test(content)) {
+      content = content.replace(/^\s*JWT_SECRET\s*=.*$/m, `JWT_SECRET="${secret}"`);
+    } else {
+      content = (content ? content.trimEnd() + '\n' : '') + `JWT_SECRET="${secret}"\n`;
+    }
+    try {
+      fs.writeFileSync(envPath, content, { encoding: 'utf8' });
+      try { fs.chmodSync(envPath, 0o600); } catch (_) {}
+    } catch (_) {}
+    process.env.JWT_SECRET = secret; // ensure current process uses the generated secret
+  }
+} catch (_) {}
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const LOG_FILE = process.env.LOG_FILE || '';
