@@ -108,8 +108,6 @@ docker-compose.example.yml
   - 验证：`docker compose logs -f` 观察启动日志；访问 `http://<主机>:<PORT>`。
 
 - 兼容性提示：
-  - 端口配置已简化为“单变量 `PORT`（映射为 PORT:PORT）”，旧的 `HOST`/`PORT_PUBLISH` 不再需要；
-  - 容器启动时会自动修正挂载目录权限（uploads/logs/database），无需在宿主机手动 chown；
   - 若运行环境不支持 SQLite WAL，可在 `.env` 中设置 `SQLITE_JOURNAL_MODE=DELETE`。
 
 ## 安全与部署建议
