@@ -305,10 +305,11 @@
 
   async function renderDashboard() {
     try {
-      const [cfg, devices, msgs] = await Promise.all([
+      const [cfg, devices, msgs, status] = await Promise.all([
         api('/config'),
         api('/devices'),
-        api('/messages?limit=1000')
+        api('/messages?limit=1000'),
+        api('/admin/status')
       ]);
       const deviceCount = (devices.devices || []).length;
       const deviceLabel = (d) => (d?.alias || (d?.device_id ? (String(d.device_id).slice(0,4)+'…'+String(d.device_id).slice(-4)) : '未命名设备'));
@@ -317,6 +318,16 @@
       const lastMsg = (msgs.messages || [])[msgCount - 1];
       const lastMsgTime = lastMsg ? new Date(lastMsg.created_at).toLocaleString() : '—';
 
+      // format helpers
+      const yn = (b) => (b ? '开启' : '关闭');
+      const fmtUptime = (sec) => {
+        sec = Number(sec||0)|0; const d=Math.floor(sec/86400); sec%=86400; const h=Math.floor(sec/3600); sec%=3600; const m=Math.floor(sec/60); const s=sec%60;
+        const parts=[]; if(d) parts.push(d+'天'); if(h) parts.push(h+'小时'); if(m) parts.push(m+'分'); parts.push(s+'秒'); return parts.join(' ');
+      };
+      const downloadLogBtn = (status && status.canDownloadLog)
+        ? `<a href="/admin/logs/download" class="btn pressable" download>下载日志</a>`
+        : `<span class="text-xs text-slate-400">未配置日志文件</span>`;
+
       const html = await window.MyDropTemplates.getTemplate('admin-dashboard-cards', {
         deviceCount,
         lastDevice: deviceLabel(lastDevice),
@@ -324,7 +335,26 @@
         lastMsgTime,
         fileSizeLimit: cfg.fileSizeLimitMB,
         maxFiles: cfg.maxFiles,
-        currentUsername: (qs('#currentUsername')?.textContent || '')
+        currentUsername: (qs('#currentUsername')?.textContent || ''),
+        // new fields
+        logLevel: (status?.logLevel || 'info'),
+        downloadLogBtn,
+        appVersion: (status?.version?.app || ''),
+        assetVersion: (status?.version?.asset || ''),
+        jwtExpiresDays: (status?.jwtExpiresDays ?? ''),
+        wsHeartbeat: yn(!!status?.wsHeartbeat),
+        cleanupEnabled: yn(!!status?.cleanup?.enabled),
+        cleanupInterval: (status?.cleanup?.intervalMinutes ?? ''),
+        messageTtlDays: (status?.cleanup?.messageTtlDays ?? 0),
+        deviceInactiveDays: (status?.cleanup?.deviceInactiveDays ?? 0),
+        cleanedFilesTotal: (status?.cleanup?.counters?.files ?? 0),
+        cleanedMessagesTotal: (status?.cleanup?.counters?.messages ?? 0),
+        nodeVersion: (status?.runtime?.node || ''),
+        platform: (status?.runtime?.platform || ''),
+        arch: (status?.runtime?.arch || ''),
+        uptime: fmtUptime(status?.runtime?.uptimeSec || 0),
+        rssMB: (status?.runtime?.memoryMB?.rss ?? 0),
+        heapMB: (status?.runtime?.memoryMB?.heapUsed ?? 0)
       });
       qs('#dashboardCards').innerHTML = html;
     } catch (e) {

@@ -235,6 +235,8 @@ function scheduleCleanup() {
   const runOnce = async () => {
     try {
       let removedFiles = 0;
+      let removedMessages = 0;
+      let removedDevices = 0;
       if (MESSAGE_TTL_DAYS > 0) {
         const cutoff = Date.now() - MESSAGE_TTL_DAYS * 24 * 60 * 60 * 1000;
         try {
@@ -244,13 +246,18 @@ function scheduleCleanup() {
             try { await fs.promises.unlink(p); removedFiles++; } catch (_) {}
           }
         } catch (_) {}
-        await db.deleteMessagesOlderThan(cutoff);
-        logger.info('cleanup.messages', { cutoff, removed_files: removedFiles });
+        try { removedMessages = await db.deleteMessagesOlderThan(cutoff); } catch (_) { removedMessages = 0; }
+        logger.info('cleanup.messages', { cutoff, removed_files: removedFiles, removed_messages: removedMessages });
+        try {
+          if (removedFiles > 0) await db.incrementStat('cleaned_files_total', removedFiles);
+          if (removedMessages > 0) await db.incrementStat('cleaned_messages_total', removedMessages);
+        } catch (_) {}
       }
       if (DEVICE_INACTIVE_DAYS > 0) {
         const beforeTs = Date.now() - DEVICE_INACTIVE_DAYS * 24 * 60 * 60 * 1000;
-        await db.deleteInactiveDevices(beforeTs);
-        logger.info('cleanup.devices', { before: beforeTs });
+        try { removedDevices = await db.deleteInactiveDevices(beforeTs); } catch (_) { removedDevices = 0; }
+        logger.info('cleanup.devices', { before: beforeTs, removed_devices: removedDevices });
+        try { if (removedDevices > 0) await db.incrementStat('cleaned_devices_total', removedDevices); } catch (_) {}
       }
     } catch (e) {
       logger.error('cleanup.error', { err: e });

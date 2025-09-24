@@ -37,3 +37,40 @@
   </div>
   <div class="card-meta mt-2">建议：使用强密码并妥善保管设备</div>
 </div>
+
+<div class="card p-3 anim-fadeInUp anim-delay-5">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="card-icon" aria-hidden="true"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h8v10H3zM13 7h8M13 12h8M13 17h8"/></svg></div>
+      <div><div class="card-title">日志与版本</div><div class="card-desc">级别：{{logLevel}}</div></div>
+    </div>
+    <div class="shrink-0">
+      {{downloadLogBtn}}
+    </div>
+  </div>
+  <div class="card-meta mt-2">应用：{{appVersion}} · 资源：{{assetVersion}}</div>
+  <div class="card-meta">Token 过期：{{jwtExpiresDays}} 天 · 心跳：{{wsHeartbeat}}</div>
+  
+</div>
+
+<div class="card p-3 anim-fadeInUp anim-delay-6">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="card-icon" aria-hidden="true"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v8H4zM4 16h10v4H4z"/></svg></div>
+      <div><div class="card-title">清理任务</div><div class="card-desc">{{cleanupEnabled}} · 每 {{cleanupInterval}} 分钟</div></div>
+    </div>
+  </div>
+  <div class="card-meta mt-2">消息 TTL：{{messageTtlDays}} 天 · 设备清理：{{deviceInactiveDays}} 天</div>
+  <div class="card-meta">累计清理：消息 {{cleanedMessagesTotal}} · 文件 {{cleanedFilesTotal}}</div>
+</div>
+
+<div class="card p-3 anim-fadeInUp anim-delay-7">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="card-icon" aria-hidden="true"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2l4 4-4 4-4-4 4-4zM4 14h16M4 18h16"/></svg></div>
+      <div><div class="card-title">运行环境</div><div class="card-desc">Node：{{nodeVersion}}</div></div>
+    </div>
+  </div>
+  <div class="card-meta mt-2">平台：{{platform}}/{{arch}} · 进程运行：{{uptime}}</div>
+  <div class="card-meta">内存：RSS {{rssMB}} MB · Heap {{heapMB}} MB</div>
+</div>
