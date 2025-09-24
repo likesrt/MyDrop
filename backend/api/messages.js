@@ -41,7 +41,7 @@ function createMessagesRouter(options) {
       try {
         for (const f of files) {
           const p = path.join(uploadDir, f.stored_name);
-          try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch (_) {}
+          try { await fs.promises.unlink(p); } catch (_) {}
         }
       } catch (_) {}
 

@@ -73,6 +73,7 @@ async function init() {
 
   await run('CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC)');
   await run('CREATE INDEX IF NOT EXISTS idx_files_message_id ON files(message_id)');
+  await run('CREATE INDEX IF NOT EXISTS idx_devices_last_seen ON devices(last_seen_at DESC)');
 
   // Single user table
   await run(`CREATE TABLE IF NOT EXISTS users (
@@ -236,13 +237,35 @@ async function listMessages(sinceId = null, limit = 100) {
     rows = await all('SELECT * FROM messages ORDER BY id DESC LIMIT ?', [limit]);
     rows = rows.reverse();
   }
-  const result = [];
-  for (const r of rows) {
-    const files = await all('SELECT * FROM files WHERE message_id = ? ORDER BY id ASC', [r.id]);
-    const sender = await get('SELECT * FROM devices WHERE device_id = ?', [r.sender_device_id]);
-    result.push({ ...r, files, sender });
+  if (!rows || rows.length === 0) return [];
+
+  // Batch-load files
+  const msgIds = rows.map(r => r.id);
+  const filesByMsg = new Map();
+  if (msgIds.length > 0) {
+    const placeholders = msgIds.map(() => '?').join(',');
+    const fileRows = await all(`SELECT * FROM files WHERE message_id IN (${placeholders}) ORDER BY id ASC`, msgIds);
+    for (const f of fileRows) {
+      const list = filesByMsg.get(f.message_id) || [];
+      list.push(f);
+      filesByMsg.set(f.message_id, list);
+    }
   }
-  return result;
+
+  // Batch-load senders
+  const senderIds = Array.from(new Set(rows.map(r => r.sender_device_id).filter(Boolean)));
+  const senderMap = new Map();
+  if (senderIds.length > 0) {
+    const placeholders = senderIds.map(() => '?').join(',');
+    const devRows = await all(`SELECT * FROM devices WHERE device_id IN (${placeholders})`, senderIds);
+    for (const d of devRows) senderMap.set(d.device_id, d);
+  }
+
+  return rows.map(r => ({
+    ...r,
+    files: filesByMsg.get(r.id) || [],
+    sender: r.sender_device_id ? (senderMap.get(r.sender_device_id) || null) : null,
+  }));
 }
 
 async function listMessagesByDevice(deviceId) {

@@ -129,7 +129,7 @@ function createFilesRouter(options) {
       const file = await db.getFile(fileId);
       if (file) {
         const p = path.join(uploadDir, file.stored_name);
-        try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch (_) {}
+        try { await fs.promises.unlink(p); } catch (_) {}
         await db.deleteFile(fileId);
       }
 

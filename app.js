@@ -10,6 +10,9 @@ const db = require('./backend/services/db');
 const { logger, requestLogger } = require('./backend/services/logger');
 
 const app = express();
+// Entry hardening
+app.disable('x-powered-by');
+app.set('trust proxy', true);
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, path: '/ws' });
 
@@ -56,6 +59,27 @@ try { app.use(require('compression')()); } catch (_) {}
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger(logger));
+// Security headers (CSP, Referrer-Policy, X-Content-Type-Options)
+app.use((req, res, next) => {
+  try {
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "media-src 'self' blob:",
+      "connect-src 'self' ws: wss:",
+      "object-src 'none'",
+      "base-uri 'none'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+    ].join('; ');
+    res.setHeader('Content-Security-Policy', csp);
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  } catch (_) {}
+  next();
+});
 // Ensure local vendor assets are present (copy from node_modules if missing)
 try { require('./scripts/copy-vendor'); } catch (_) {}
 // Serve built static assets (Tailwind CSS, vendor libs) under frontend/templates/static
@@ -77,9 +101,6 @@ app.get('/sw.js', (req, res) => {
 // Serve minimal static assets only (moved under templates)
 app.get('/', (req, res) => {
   res.sendFile(path.join(TEMPLATES_DIR, 'index.html'));
-});
-app.get('/demo', (req, res) => {
-  res.sendFile(path.join(TEMPLATES_DIR, 'demo.html'));
 });
 app.get('/index.css', (req, res) => {
   res.type('text/css').sendFile(path.join(TEMPLATES_DIR, 'index.css'));
@@ -220,7 +241,7 @@ function scheduleCleanup() {
           const files = await db.listFilesForOldMessages(cutoff);
           for (const f of files) {
             const p = path.join(UPLOAD_DIR, f.stored_name);
-            try { if (fs.existsSync(p)) { fs.unlinkSync(p); removedFiles++; } } catch (_) {}
+            try { await fs.promises.unlink(p); removedFiles++; } catch (_) {}
           }
         } catch (_) {}
         await db.deleteMessagesOlderThan(cutoff);

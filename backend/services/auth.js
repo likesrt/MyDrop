@@ -30,7 +30,15 @@ function verifyJWT(token, secret) {
   const parts = (token || '').split('.');
   if (parts.length !== 3) throw new Error('Invalid token');
   const [h, p, s] = parts;
-  const expected = crypto.createHmac('sha256', secret).update(h + '.' + p).digest('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(h + '.' + p)
+    .digest('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+  // Avoid leaking timing on mismatched lengths before constant-time compare
+  if (s.length !== expected.length) throw new Error('Invalid signature');
   if (!crypto.timingSafeEqual(Buffer.from(s), Buffer.from(expected))) throw new Error('Invalid signature');
   const payload = JSON.parse(Buffer.from(p.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
   if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) throw new Error('Token expired');

@@ -34,6 +34,19 @@ function createAuthRouter(options) {
     return `${proto}://${host}`;
   }
 
+  function isSecureReq(req) {
+    if (req.secure) return true;
+    const xf = (req.headers['x-forwarded-proto'] || '').toString().split(',')[0].trim().toLowerCase();
+    return xf === 'https';
+  }
+
+  function cookieOptsFor(req, maxAgeMs = null) {
+    const base = { httpOnly: true, sameSite: 'lax', path: '/' };
+    if (isSecureReq(req)) base.secure = true;
+    if (typeof maxAgeMs === 'number' && maxAgeMs > 0) base.maxAge = maxAgeMs;
+    return base;
+  }
+
   // Auth middleware
   async function requireAuth(req, res, next) {
     try {
@@ -43,7 +56,7 @@ function createAuthRouter(options) {
       // verify token version against DB
       const user = await db.getUserById(claims.sub);
       if (!user || typeof claims.tv !== 'number' || claims.tv !== (user.token_version || 0)) {
-        try { res.clearCookie(tokenCookieName); } catch (_) {}
+        try { res.clearCookie(tokenCookieName, cookieOptsFor(req)); } catch (_) {}
         return res.status(401).json({ error: 'Invalid token' });
       }
       req.user = { id: claims.sub, username: claims.username };
@@ -51,7 +64,7 @@ function createAuthRouter(options) {
       // ensure device still exists (revoked device should not access)
       const device = await db.getDevice(req.device_id);
       if (!device) {
-        try { res.clearCookie(tokenCookieName); } catch (_) {}
+        try { res.clearCookie(tokenCookieName, cookieOptsFor(req)); } catch (_) {}
         return res.status(401).json({ error: 'Device revoked' });
       }
       req.device = device;
@@ -92,9 +105,8 @@ function createAuthRouter(options) {
       const expiresSec = days > 0 ? days * 24 * 60 * 60 : null;
       const token = signJWT({ sub: user.id, username: user.username, device_id: deviceId, tv: user.token_version || 0 }, jwtSecret, expiresSec);
 
-      const cookieOpts = { httpOnly: true, sameSite: 'lax' };
-      if (days > 0) cookieOpts.maxAge = expiresSec * 1000;
-      res.cookie(tokenCookieName, token, cookieOpts);
+      const cookieMaxAge = days > 0 ? (expiresSec * 1000) : null;
+      res.cookie(tokenCookieName, token, cookieOptsFor(req, cookieMaxAge));
 
       logger.info('login.success', { device_id: deviceId, alias: alias || '', ip: req.ip });
       res.json({ ok: true, needsPasswordChange: !!user.is_default_password });
@@ -124,9 +136,8 @@ function createAuthRouter(options) {
       const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
       const expiresSec = days > 0 ? days * 24 * 60 * 60 : null;
       const token = signJWT({ sub: user.id, username: user.username, device_id: flow.deviceId, tv: user.token_version || 0 }, jwtSecret, expiresSec);
-      const cookieOpts = { httpOnly: true, sameSite: 'lax' };
-      if (days > 0) cookieOpts.maxAge = expiresSec * 1000;
-      res.cookie(tokenCookieName, token, cookieOpts);
+      const cookieMaxAge = days > 0 ? (expiresSec * 1000) : null;
+      res.cookie(tokenCookieName, token, cookieOptsFor(req, cookieMaxAge));
       logger.info('login.totp.success', { device_id: flow.deviceId });
       res.json({ ok: true, needsPasswordChange: !!user.is_default_password });
     } catch (err) {
@@ -138,7 +149,7 @@ function createAuthRouter(options) {
   // Logout
   router.post('/logout', requireAuth, async (req, res) => {
     try {
-      res.clearCookie(tokenCookieName, { httpOnly: true, sameSite: 'lax' });
+      res.clearCookie(tokenCookieName, cookieOptsFor(req));
       logger.info('logout', { device_id: req.device_id });
       res.json({ ok: true });
     } catch (err) {
@@ -204,7 +215,7 @@ function createAuthRouter(options) {
       const updated = await db.updateUserAuth(user.id, updates);
 
       // Force logout by clearing cookie and kicking WS sessions
-      try { res.clearCookie(tokenCookieName, { httpOnly: true, sameSite: 'lax', path: '/' }); } catch (_) {}
+      try { res.clearCookie(tokenCookieName, cookieOptsFor(req)); } catch (_) {}
       try { if (typeof kickUserSessions === 'function') kickUserSessions(updated.id); } catch (_) {}
 
       res.json({ ok: true, loggedOut: true });

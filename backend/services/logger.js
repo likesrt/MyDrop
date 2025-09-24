@@ -71,6 +71,16 @@ function serializeError(err) {
 
 function requestLogger(logger) {
   return function (req, res, next) {
+    // Skip noisy static and template assets
+    try {
+      const p = req.originalUrl || req.url || '';
+      if (req.method === 'GET') {
+        if (p === '/sw.js' || p === '/index.css' || p === '/admin.js' ||
+            p.startsWith('/static/') || p.startsWith('/js/') || p.startsWith('/templates/components/')) {
+          return next();
+        }
+      }
+    } catch (_) {}
     const start = process.hrtime.bigint();
     const ip = (req.headers['x-forwarded-for'] || '').toString().split(',')[0].trim() || req.ip;
     res.on('finish', () => {
@@ -96,4 +106,3 @@ module.exports = {
   requestLogger,
   serializeError,
 };
-

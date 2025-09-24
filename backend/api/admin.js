@@ -7,6 +7,18 @@ function createAdminRouter(options) {
   const { db, uploadDir, tokenCookieName, kickDevice, requireAuth } = options;
   const router = express.Router();
 
+  function isSecureReq(req) {
+    if (req.secure) return true;
+    const xf = (req.headers['x-forwarded-proto'] || '').toString().split(',')[0].trim().toLowerCase();
+    return xf === 'https';
+  }
+
+  function cookieOptsFor(req) {
+    const base = { httpOnly: true, sameSite: 'lax', path: '/' };
+    if (isSecureReq(req)) base.secure = true;
+    return base;
+  }
+
   // Delete device and optionally its messages/files
   router.post('/admin/device/delete', requireAuth, async (req, res) => {
     try {
@@ -17,7 +29,7 @@ function createAdminRouter(options) {
         const files = await db.listFilesByDevice(deviceId);
         for (const f of files) {
           const p = path.join(uploadDir, f.stored_name);
-          try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch (_) {}
+          try { await fs.promises.unlink(p); } catch (_) {}
         }
 
         const msgs = await db.listMessagesByDevice(deviceId);
@@ -29,7 +41,7 @@ function createAdminRouter(options) {
 
       // If deleting current device, clear cookie immediately
       if (deviceId === req.device_id) {
-        try { res.clearCookie(tokenCookieName, { httpOnly: true, sameSite: 'lax', path: '/' }); } catch (_) {}
+        try { res.clearCookie(tokenCookieName, cookieOptsFor(req)); } catch (_) {}
       }
 
       logger.info('admin.device.delete', { device_id: deviceId, remove_messages: !!removeMessages });
