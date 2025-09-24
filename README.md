@@ -55,10 +55,9 @@ docker compose down       # 停止容器
   - `./database:/app/database`（SQLite 主库与 WAL/SHM）
   - `./uploads:/app/uploads`
   - `./logs:/app/logs`
-- 端口映射：使用 `PUBLISH_PORT` 控制主机端口（`docker-compose.yml` 已内置）。
-  - 示例：`PUBLISH_PORT=8080` → 主机 8080 对应容器 3000
-  - 仅本机访问：按 compose 注释将端口行改为 `127.0.0.1:${PUBLISH_PORT:-3000}:3000`
-  - 容器内绑定固定 `0.0.0.0`，无需修改。
+- 端口映射（更简单）：仅一个变量 `PORT`。
+  - 在 `.env` 修改 `PORT=8080` → 发布为 `8080:8080`（容器也监听 8080）。
+  - 仅本机访问：把 compose 端口行改为 `127.0.0.1:${PORT:-3000}:${PORT:-3000}`。
 
 ## 目录结构
 
@@ -87,8 +86,7 @@ docker-compose.yml
 
 ## 环境变量
 
-- `PORT`：进程内监听端口（默认 3000）
-- `PUBLISH_PORT`（docker-compose）：主机端口，映射为 `主机端口:3000`
+- `PORT`：同时用于应用内部监听与 docker-compose 端口映射（默认 3000）
 - `JWT_SECRET`：JWT 签名密钥（务必强设置）
 - `JWT_EXPIRES_DAYS`：JWT 过期天数（默认 7）
 - `MAX_FILES`：全局文件数量上限（默认 10）

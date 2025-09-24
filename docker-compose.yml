@@ -3,16 +3,14 @@ services:
     build: .
     image: mydrop:latest
     container_name: mydrop
-    environment:
-      # Force binding to 0.0.0.0 inside container; control external exposure via ports mapping
-      - HOST=0.0.0.0
     env_file:
       - ./.env
     ports:
-      # Map host port to container 3000. Simple: set PUBLISH_PORT=8080 to publish 8080:3000
-      - "${PUBLISH_PORT:-3000}:3000"
-      # To bind only to loopback, replace the above with the following line:
-      # - "127.0.0.1:${PUBLISH_PORT:-3000}:3000"
+      # Simple mapping using a single variable PORT for both sides.
+      # Change PORT in .env to adjust published port.
+      - "${PORT:-3000}:${PORT:-3000}"
+      # 禁止端口访问需要
+      # - "127.0.0.1:${PORT:-3000}:${PORT:-3000}"
     volumes:
       # 挂载上传文件，数据库和日志到宿主机，便于持久化
       - ./uploads:/app/uploads
