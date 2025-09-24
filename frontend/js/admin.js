@@ -13,7 +13,10 @@
       const res = await fetch(path, { ...rest, signal: controller.signal });
       if (!res.ok) {
         let msg = res.status === 401 ? '未登录' : '请求失败';
-        try { const j = await res.json(); if (j && j.error) msg = j.error; } catch(_){}
+        try {
+          const j = await res.json();
+          if (j && j.error) msg = j.error;
+        } catch(_){}
         if (res.status === 401) { location.href = '/'; }
         const err = new Error(msg);
         err.status = res.status;
@@ -23,6 +26,10 @@
     } catch (err) {
       if (err && (err.name === 'AbortError' || /aborted|timeout/i.test(String(err.message||'')))) {
         const e = new Error('请求超时'); e.status = 408; throw e;
+      }
+      // 如果错误已经有状态码和消息，保持原样
+      if (err && err.status && err.message) {
+        throw err;
       }
       const e = new Error('请求失败'); e.status = 0; throw e;
     } finally {
