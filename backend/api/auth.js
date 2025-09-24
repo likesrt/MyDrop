@@ -364,30 +364,7 @@ function createAuthRouter(options) {
     }
   });
 
-  // Legacy GET scanning endpoint (still supported)
-  router.get('/login/qr/scan', requireAuth, async (req, res) => {
-    try {
-      const rid = (req.query.rid || '').toString();
-      const code = (req.query.code || '').toString();
-      const sess = qrSessions.get(rid);
-      if (!rid || !code || !sess) return res.status(404).send('<!doctype html><meta charset="utf-8"/>无效或已过期的二维码');
-      if (sess.consumed || (sess.expiresAt && sess.expiresAt < now())) return res.status(410).send('<!doctype html><meta charset="utf-8"/>二维码已过期');
-      if (sess.codeHash !== hashCode(code)) return res.status(400).send('<!doctype html><meta charset="utf-8"/>二维码无效');
-
-      const user = await db.getUserById(req.user.id);
-      if (!user || !user.qr_login_enabled) return res.status(403).send('<!doctype html><meta charset="utf-8"/>扫码登录已关闭，请在账号设置中开启');
-
-      // Approve the session
-      sess.approvedBy = user.id;
-      // no remember provided in legacy flow
-      qrSessions.set(rid, sess);
-      logger.info('qr.approved', { rid, user_id: user.id });
-      res.send('<!doctype html><meta charset="utf-8"/><title>已批准</title><div style="font-family:sans-serif;padding:2rem;">登录请求已批准，可以回到新设备继续操作。</div>');
-    } catch (err) {
-      logger.error('qr.scan.error', { err });
-      res.status(500).send('<!doctype html><meta charset="utf-8"/>服务器错误');
-    }
-  });
+  // Legacy GET scanning endpoint removed
 
   // Poll status from the new device
   router.get('/login/qr/status', async (req, res) => {

@@ -144,18 +144,58 @@
     const fileBtn = qs('#qrScanFromFileBtn');
     const rememberEl = qs('#qrApproveRemember');
 
-    async function approveWithPayload(text) {
+    async function approveWithPayload(text, rememberOverride) {
       const payload = parseQrPayload(String(text || ''));
       if (!payload) { toast('无法识别二维码内容', 'warn'); return; }
       try {
         await api('/login/qr/approve', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rid: payload.rid, code: payload.code, remember: !!(rememberEl && rememberEl.checked) })
+          body: JSON.stringify({ rid: payload.rid, code: payload.code, remember: (typeof rememberOverride === 'boolean') ? rememberOverride : !!(rememberEl && rememberEl.checked) })
         });
         toast('已授权登录请求，可在新设备继续', 'success');
       } catch (e) {
         toast(formatError(e, '授权失败'), 'error');
       }
+    }
+
+    async function chooseRemember() {
+      // Prompt with two choices: temporary (default) or long
+      const result = await Swal.fire({
+        title: '选择登录有效期',
+        text: '默认临时登录（会话/短期）。',
+        showDenyButton: true,
+        confirmButtonText: '临时登录',
+        denyButtonText: '长效登录',
+        reverseButtons: true,
+      });
+      if (result.isDenied) return true; // remember
+      return false; // temporary by default
+    }
+
+    async function openFilePickerAndDetect() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      return new Promise((resolve) => {
+        input.onchange = async () => {
+          const f = input.files && input.files[0];
+          if (!f) return resolve(false);
+          try {
+            const img = await createImageBitmap(f);
+            if ('BarcodeDetector' in window) {
+              const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+              const res = await detector.detect(img);
+              if (res && res.length) {
+                const remember = await chooseRemember();
+                await approveWithPayload(res[0].rawValue || res[0].rawText || '', remember);
+                return resolve(true);
+              }
+            }
+            toast('未识别到二维码', 'warn'); resolve(false);
+          } catch (e) { toast('无法识别该图片', 'error'); resolve(false); }
+        };
+        input.click();
+      });
     }
 
     if (scanBtn && 'BarcodeDetector' in window) {
@@ -177,48 +217,50 @@
               const el = document.getElementById('qrVideo');
               if (el) el.srcObject = perms;
               (async function loop() {
+                const target = el || video;
+                const startTs = Date.now();
                 while (!stopped) {
                   try {
-                    const codes = await detector.detect(el || video);
+                    const codes = await detector.detect(target);
                     if (codes && codes.length) {
                       stopped = true;
-                      try { await approveWithPayload(codes[0].rawValue || codes[0].rawText || ''); } finally {
-                        try { Swal.close(); } catch (_) {}
-                      }
+                      try {
+                        const remember = await chooseRemember();
+                        await approveWithPayload(codes[0].rawValue || codes[0].rawText || '', remember);
+                      } finally { try { Swal.close(); } catch (_) {} }
                       break;
                     }
                   } catch (_) {}
-                  await new Promise(r => setTimeout(r, 300));
+                  // aim to succeed within ~1-2s: faster polling
+                  await new Promise(r => setTimeout(r, 100));
+                  // If 2s passed and no camera success, auto fallback to file picker once
+                  if (Date.now() - startTs > 2000) {
+                    stopped = true;
+                    try { Swal.close(); } catch (_) {}
+                    await openFilePickerAndDetect();
+                    break;
+                  }
                 }
               })();
             },
             willClose: () => { stopped = true; try { perms.getTracks().forEach(t => t.stop()); } catch (_) {} }
           });
         } catch (e) {
-          toast('无法打开相机或当前浏览器不支持扫码', 'warn');
+          // camera failed: fallback to file picker
+          const ok = await openFilePickerAndDetect();
+          if (!ok) toast('无法打开相机或当前浏览器不支持扫码', 'warn');
         }
       });
     } else if (scanBtn) {
-      scanBtn.addEventListener('click', () => toast('当前浏览器不支持相机扫码', 'warn'));
+      scanBtn.addEventListener('click', async () => {
+        const ok = await openFilePickerAndDetect();
+        if (!ok) toast('当前浏览器不支持相机扫码', 'warn');
+      });
     }
 
     if (fileBtn && 'BarcodeDetector' in window) {
       fileBtn.addEventListener('click', async () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = async () => {
-          const f = input.files && input.files[0];
-          if (!f) return;
-          try {
-            const img = await createImageBitmap(f);
-            const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-            const res = await detector.detect(img);
-            if (res && res.length) { await approveWithPayload(res[0].rawValue || res[0].rawText || ''); }
-            else toast('未识别到二维码', 'warn');
-          } catch (e) { toast('无法识别该图片', 'error'); }
-        };
-        input.click();
+        await openFilePickerAndDetect();
       });
     } else if (fileBtn) {
       fileBtn.addEventListener('click', () => toast('当前浏览器不支持从图片识别二维码', 'warn'));
