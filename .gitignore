@@ -7,6 +7,7 @@ node_modules/
 
 # Environment and local data
 .env
+release-notes-*.md
 sqlite.db
 sqlite.db-shm
 sqlite.db-wal
