@@ -407,8 +407,17 @@
           refreshAutoCleanupUI();
         });
         form.autoCleanupEnabled.addEventListener('change', refreshAutoCleanupUI);
+        // demo分支：系统设置只读
+        // 禁用所有输入与提交按钮
+        Array.from(form.querySelectorAll('input,select,button')).forEach(el => {
+          if (el && el.type !== 'button') el.disabled = true;
+        });
+        const saveBtn = form.querySelector('button[type="submit"]');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '演示环境（只读）'; }
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
+          // 只读提示
+          return toast('演示环境：系统设置只读，禁止修改', 'warn');
           const fd = new FormData(form);
           const payload = {
             autoCleanupEnabled: form.autoCleanupEnabled.checked,

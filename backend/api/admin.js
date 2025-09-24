@@ -122,6 +122,8 @@ function createAdminRouter(options) {
 
   router.post('/admin/settings', requireAuth, async (req, res) => {
     try {
+      // demo分支：系统设置只读，拦截修改
+      return res.status(403).json({ error: '演示环境：系统设置为只读，禁止修改' });
       const body = req.body || {};
       const patch = {
         autoCleanupEnabled: !!body.autoCleanupEnabled,
