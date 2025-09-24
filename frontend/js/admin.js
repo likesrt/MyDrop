@@ -168,7 +168,9 @@
 
   async function detectQrFromBitmap(bitmap) {
     try {
-      const w = bitmap.width, h = bitmap.height;
+      let w = bitmap.width, h = bitmap.height;
+      const maxDim = 1200; const scale = Math.min(1, maxDim / Math.max(w, h));
+      if (scale < 1) { w = Math.floor(w * scale); h = Math.floor(h * scale); }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
@@ -179,8 +181,10 @@
 
   async function detectQrFromImage(img) {
     try {
-      const w = img.naturalWidth || img.width;
-      const h = img.naturalHeight || img.height;
+      let w = img.naturalWidth || img.width;
+      let h = img.naturalHeight || img.height;
+      const maxDim = 1200; const scale = Math.min(1, maxDim / Math.max(w, h));
+      if (scale < 1) { w = Math.floor(w * scale); h = Math.floor(h * scale); }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
@@ -265,9 +269,12 @@
         try {
           const perms = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           const video = document.createElement('video');
+          video.setAttribute('playsinline', '');
           video.playsInline = true;
+          video.muted = true;
           video.srcObject = perms;
-          await video.play();
+          try { await new Promise(r => video.addEventListener('loadedmetadata', r, { once: true })); } catch (_) {}
+          try { await video.play(); } catch (_) {}
           const detector = ('BarcodeDetector' in window) ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
           let stopped = false;
           await Swal.fire({
@@ -284,9 +291,12 @@
                   try {
                     let codeText = null;
                     if (detector) {
-                      const codes = await detector.detect(target);
-                      if (codes && codes.length) codeText = codes[0].rawValue || codes[0].rawText || '';
-                    } else {
+                      try {
+                        const codes = await detector.detect(target);
+                        if (codes && codes.length) codeText = codes[0].rawValue || codes[0].rawText || '';
+                      } catch (_) { /* ignore */ }
+                    }
+                    if (!codeText) {
                       codeText = await detectQrFromVideo(target);
                     }
                     if (codeText) {

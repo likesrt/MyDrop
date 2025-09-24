@@ -148,12 +148,12 @@ function bindLogin() {
       qrBtn.addEventListener('click', async () => {
         try {
           const start = await window.MyDropAPI.api('/login/qr/start', { method: 'POST' });
-          const rid = start.rid; const code = start.code; const expiresAt = start.expiresAt || 0;
+          let rid = start.rid; let code = start.code; let expiresAt = start.expiresAt || 0;
           const alias = (window.MyDropUtils.qs('#loginAlias')?.value || '').toString();
           const remember = !!(window.MyDropUtils.qs('#rememberMe')?.checked);
           const deviceId = window.MyDropUtils.getDeviceId();
-          const imgUrl = `/login/qr/svg?rid=${encodeURIComponent(rid)}&code=${encodeURIComponent(code)}`;
-          const endAt = expiresAt ? new Date(expiresAt) : null;
+          let imgUrl = `/login/qr/svg?rid=${encodeURIComponent(rid)}&code=${encodeURIComponent(code)}`;
+          let endAt = expiresAt ? new Date(expiresAt) : null;
 
           let timer = null; let closed = false;
           const poll = async () => {
@@ -172,6 +172,16 @@ function bindLogin() {
                 await window.MyDropApp.render();
                 return;
               }
+              if (st && st.expired) {
+                try {
+                  const next = await window.MyDropAPI.api('/login/qr/start', { method: 'POST' });
+                  rid = next.rid; code = next.code; expiresAt = next.expiresAt || 0;
+                  imgUrl = `/login/qr/svg?rid=${encodeURIComponent(rid)}&code=${encodeURIComponent(code)}`;
+                  endAt = expiresAt ? new Date(expiresAt) : null;
+                  const img = document.getElementById('qrImg'); if (img) img.src = imgUrl + '&r=' + Date.now();
+                  const txt = document.getElementById('qrExpireText'); if (txt) txt.textContent = endAt ? `请使用已登录设备扫描二维码进行授权，有效期至：${endAt.toLocaleTimeString()}` : '请使用已登录设备扫描二维码进行授权';
+                } catch (_) {}
+              }
             } catch (_) { /* ignore transient */ }
             timer = setTimeout(poll, 1500);
           };
@@ -179,7 +189,7 @@ function bindLogin() {
           try {
             await Swal.fire({
               title: '扫码登录',
-              html: `<div class="space-y-2"><img alt="二维码" src="${imgUrl}" class="mx-auto border rounded" /><div class="text-xs text-slate-500">请使用已登录设备扫描二维码进行授权${endAt?`，有效期至：${endAt.toLocaleTimeString()}`:''}</div></div>`,
+              html: `<div class="space-y-2"><img id="qrImg" alt="二维码" src="${imgUrl}" class="mx-auto border rounded" /><div id="qrExpireText" class="text-xs text-slate-500">请使用已登录设备扫描二维码进行授权${endAt?`，有效期至：${endAt.toLocaleTimeString()}`:''}</div></div>`,
               showConfirmButton: false,
               showCancelButton: true,
               cancelButtonText: '取消',
