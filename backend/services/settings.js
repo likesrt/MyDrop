@@ -102,6 +102,10 @@ function normalize(partial) {
 async function update(partial) {
   if (!_db) throw new Error('settings.init not called');
   const next = normalize(partial || {});
+  // If Auto interval is enabled, persist minutes as 720 for clarity
+  if (next.autoCleanupEnabled && next.cleanupIntervalAuto) {
+    next.cleanupIntervalMinutes = 720;
+  }
   // Persist to app_meta
   await _db.setMeta('settings.AUTO_CLEANUP_ENABLED', next.autoCleanupEnabled ? 'true' : 'false');
   await _db.setMeta('settings.CLEANUP_INTERVAL_AUTO', next.cleanupIntervalAuto ? 'true' : 'false');

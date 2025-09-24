@@ -398,6 +398,12 @@
         // Toggle auto interval disables minutes input
         form.cleanupIntervalAuto.addEventListener('change', () => {
           refreshAutoCleanupUI();
+          // 勾选“自动”时，让间隔输入框显示 720（只读），与持久化一致
+          try {
+            if (form.cleanupIntervalAuto.checked) {
+              form.cleanupIntervalMinutes.value = '720';
+            }
+          } catch (_) {}
         });
         form.autoCleanupEnabled.addEventListener('change', refreshAutoCleanupUI);
         form.addEventListener('submit', async (e) => {
@@ -406,7 +412,7 @@
           const payload = {
             autoCleanupEnabled: form.autoCleanupEnabled.checked,
             cleanupIntervalAuto: form.cleanupIntervalAuto.checked,
-            cleanupIntervalMinutes: Number(fd.get('cleanupIntervalMinutes') || '0') | 0,
+            cleanupIntervalMinutes: form.cleanupIntervalAuto.checked ? 720 : (Number(fd.get('cleanupIntervalMinutes') || '0') | 0),
             messageTtlDays: Number(fd.get('messageTtlDays') || '0') | 0,
             deviceInactiveDays: Number(fd.get('deviceInactiveDays') || '0') | 0,
             jwtExpiresDays: Number(fd.get('jwtExpiresDays') || '0') | 0,
