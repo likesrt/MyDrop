@@ -1,6 +1,6 @@
 services:
   mydrop:
-    image: ghcr.io/likesrt/mydrop:latest
+    image: ghcr.io/likesrt/mydrop:main
     container_name: mydrop
     env_file:
       - ./.env
