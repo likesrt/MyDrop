@@ -325,7 +325,7 @@
         const parts=[]; if(d) parts.push(d+'天'); if(h) parts.push(h+'小时'); if(m) parts.push(m+'分'); parts.push(s+'秒'); return parts.join(' ');
       };
       const downloadLogBtn = (status && status.canDownloadLog)
-        ? `<a href="/admin/logs/download" class="btn pressable" download>下载日志</a>`
+        ? `<button id="downloadLogBtn" class="btn pressable">下载日志</button>`
         : `<span class="text-xs text-slate-400">未配置日志文件</span>`;
 
       const html = await window.MyDropTemplates.getTemplate('admin-dashboard-cards', {
@@ -357,6 +357,30 @@
         heapMB: (status?.runtime?.memoryMB?.heapUsed ?? 0)
       });
       qs('#dashboardCards').innerHTML = html;
+      // 绑定下载日志按钮并处理失败提示
+      const dl = qs('#downloadLogBtn');
+      if (dl) {
+        dl.addEventListener('click', async () => {
+          try {
+            const res = await fetch('/admin/logs/download');
+            if (!res.ok) { throw new Error('下载失败'); }
+            const blob = await res.blob();
+            const cd = res.headers.get('content-disposition') || '';
+            let filename = 'logs.txt';
+            const m = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(cd);
+            if (m) filename = decodeURIComponent(m[1] || m[2] || filename);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { try { URL.revokeObjectURL(a.href); a.remove(); } catch(_){} }, 2000);
+            toast('已开始下载日志', 'success');
+          } catch (e) {
+            toast('下载失败', 'error');
+          }
+        });
+      }
     } catch (e) {
       // ignore dashboard if API fails
     }
@@ -377,8 +401,11 @@
           const targets = keys.filter(k => k.startsWith('mydrop-static-v'));
           await Promise.all(targets.map(async k => { const ok = await caches.delete(k); if (ok) removed++; }));
         }
-        // 提醒 SW 立即激活（如存在新版本）
-        try { navigator.serviceWorker?.controller?.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {}
+        // 提醒 SW 立即激活（如存在新版本）并强制本次静态资源加随机参数
+        try {
+          navigator.serviceWorker?.controller?.postMessage({ type: 'SKIP_WAITING' });
+          navigator.serviceWorker?.controller?.postMessage({ type: 'BUST_FETCH' });
+        } catch (_) {}
         await toast(`已清除 ${removed} 个缓存条目，正在刷新以加载最新资源…`, 'success');
         // 强制刷新并携带随机查询参数，确保从网络拉取最新静态资源
         try {
