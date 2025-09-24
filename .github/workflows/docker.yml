@@ -1,4 +1,4 @@
-name: Build and Push Docker Images
+name: Build and Push Docker Images (main public, demo private)
 
 on:
   push:
@@ -41,27 +41,69 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker meta (${{ matrix.target }})
-        id: meta
+      # Metadata for main (public) → package: ghcr.io/<owner>/<repo>
+      - name: Docker meta (main)
+        if: matrix.target == 'main'
+        id: meta_main
         uses: docker/metadata-action@v5
         with:
           images: |
             ghcr.io/${{ github.repository }}
           tags: |
-            ${{ matrix.target == 'main' && 'type=raw,value=latest' || '' }}
-            ${{ matrix.target == 'main' && 'type=raw,value=main' || '' }}
-            ${{ matrix.target == 'main' && 'type=ref,event=tag' || '' }}
-            ${{ matrix.target == 'demo' && 'type=raw,value=demo' || '' }}
-            ${{ matrix.target == 'demo' && 'type=ref,event=tag,prefix=demo-' || '' }}
+            type=raw,value=latest
+            type=raw,value=main
+            type=ref,event=tag
 
-      - name: Build and push (${{ matrix.target }})
+      # Metadata for demo (private) → package: ghcr.io/<owner>/mydrop-demo
+      - name: Docker meta (demo)
+        if: matrix.target == 'demo'
+        id: meta_demo
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/mydrop-demo
+          tags: |
+            type=raw,value=latest
+            type=raw,value=demo
+            type=ref,event=tag
+
+      - name: Build and push (main)
+        if: matrix.target == 'main'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta_main.outputs.tags }}
+          labels: ${{ steps.meta_main.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build and push (demo)
+        if: matrix.target == 'demo'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta_demo.outputs.tags }}
+          labels: ${{ steps.meta_demo.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Optional: enforce demo package as private (requires Personal Access Token in GHCR_ADMIN_TOKEN)
+      - name: Ensure demo package is private
+        if: matrix.target == 'demo' && env.GHCR_ADMIN_TOKEN != ''
+        env:
+          GHCR_ADMIN_TOKEN: ${{ secrets.GHCR_ADMIN_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -e
+          echo "Setting visibility for ghcr.io/${OWNER}/mydrop-demo to private (if supported by token)"
+          curl -fsSL -X PUT \
+            -H "Authorization: Bearer ${GHCR_ADMIN_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/user/packages/container/mydrop-demo/visibility \
+            -d '{"visibility":"private"}' || echo "(Skipped or insufficient permissions)"
