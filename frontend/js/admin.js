@@ -359,7 +359,7 @@
   }
 
   function switchTab(name) {
-    const sections = ['dashboard','settings','devices','messages','cache'];
+    const sections = ['dashboard','settings','devices','system','messages','cache'];
     sections.forEach(id => {
       const el = qs(`#tab-${id}`);
       if (!el) return;
@@ -371,6 +371,76 @@
     if (name === 'devices') renderDevices();
     if (name === 'messages') renderMessages();
     if (name === 'cache') bindCacheTools();
+    if (name === 'system') renderSystemSettings();
+  }
+
+  async function renderSystemSettings() {
+    try {
+      const data = await api('/admin/settings');
+      const cfg = data && data.settings ? data.settings : {};
+      const form = qs('#systemForm'); if (!form) return;
+      form.autoCleanupEnabled.checked = !!cfg.autoCleanupEnabled;
+      form.cleanupIntervalAuto.checked = !!cfg.cleanupIntervalAuto;
+      form.cleanupIntervalMinutes.disabled = !!cfg.cleanupIntervalAuto;
+      form.cleanupIntervalMinutes.value = (cfg.cleanupIntervalMinutes != null ? cfg.cleanupIntervalMinutes : '');
+      form.messageTtlDays.value = (cfg.messageTtlDays != null ? cfg.messageTtlDays : '');
+      form.deviceInactiveDays.value = (cfg.deviceInactiveDays != null ? cfg.deviceInactiveDays : '');
+      form.jwtExpiresDays.value = (cfg.jwtExpiresDays != null ? cfg.jwtExpiresDays : '');
+      form.tempLoginTtlMinutes.value = (cfg.tempLoginTtlMinutes != null ? cfg.tempLoginTtlMinutes : '');
+      form.headerAutoHide.checked = !!cfg.headerAutoHide;
+      form.fileSizeLimitMB.value = (cfg.fileSizeLimitMB != null ? cfg.fileSizeLimitMB : '');
+      form.maxFiles.value = (cfg.maxFiles != null ? cfg.maxFiles : '');
+      if (form.logLevel) form.logLevel.value = (cfg.logLevel || 'warn');
+      const refreshAutoCleanupUI = () => {
+        const on = !!form.autoCleanupEnabled.checked;
+        form.cleanupIntervalAuto.disabled = !on;
+        form.cleanupIntervalMinutes.disabled = !on || !!form.cleanupIntervalAuto.checked;
+        form.messageTtlDays.disabled = !on;
+        form.deviceInactiveDays.disabled = !on;
+      };
+      refreshAutoCleanupUI();
+
+      if (!form._bound) {
+        form._bound = true;
+        // Toggle auto interval disables minutes input
+        form.cleanupIntervalAuto.addEventListener('change', () => {
+          refreshAutoCleanupUI();
+        });
+        form.autoCleanupEnabled.addEventListener('change', refreshAutoCleanupUI);
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const fd = new FormData(form);
+          const payload = {
+            autoCleanupEnabled: form.autoCleanupEnabled.checked,
+            cleanupIntervalAuto: form.cleanupIntervalAuto.checked,
+            cleanupIntervalMinutes: Number(fd.get('cleanupIntervalMinutes') || '0') | 0,
+            messageTtlDays: Number(fd.get('messageTtlDays') || '0') | 0,
+            deviceInactiveDays: Number(fd.get('deviceInactiveDays') || '0') | 0,
+            jwtExpiresDays: Number(fd.get('jwtExpiresDays') || '0') | 0,
+            tempLoginTtlMinutes: Number(fd.get('tempLoginTtlMinutes') || '0') | 0,
+            headerAutoHide: form.headerAutoHide.checked,
+            fileSizeLimitMB: Number(fd.get('fileSizeLimitMB') || '0') | 0,
+            maxFiles: Number(fd.get('maxFiles') || '0') | 0,
+            logLevel: (fd.get('logLevel') || 'warn').toString()
+          };
+          // Validate
+          if (payload.autoCleanupEnabled && !payload.cleanupIntervalAuto && payload.cleanupIntervalMinutes < 30) {
+            return toast('清理间隔需 >= 30 分钟', 'warn');
+          }
+          if (payload.messageTtlDays < 0) return toast('消息保留天数不能为负数', 'warn');
+          if (payload.deviceInactiveDays < 0) return toast('未活跃设备清理天数不能为负数', 'warn');
+          if (payload.tempLoginTtlMinutes < 1) return toast('临时登录有效期需 >= 1 分钟', 'warn');
+          if (payload.fileSizeLimitMB < 1) return toast('单个文件上限需 >= 1 MB', 'warn');
+          if (payload.maxFiles < 1) return toast('全局文件数量上限需 >= 1', 'warn');
+          try {
+            await api('/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            toast('已保存', 'success');
+          } catch (err) { toast(formatError(err, '保存失败'), 'error'); }
+        });
+      }
+    } catch (err) {
+      toast(formatError(err, '加载设置失败'), 'error');
+    }
   }
 
   async function setupMFAAndPasskeys() {
@@ -667,14 +737,8 @@
           navigator.serviceWorker?.controller?.postMessage({ type: 'BUST_FETCH' });
         } catch (_) {}
         await toast(`已清除 ${removed} 个缓存条目，正在刷新以加载最新资源…`, 'success');
-        // 强制刷新并携带随机查询参数，确保从网络拉取最新静态资源
-        try {
-          const url = new URL(location.href);
-          url.searchParams.set('r', Date.now());
-          location.replace(url.toString());
-        } catch (_) {
-          location.reload();
-        }
+        // 仅刷新页面；静态资源的缓存破坏由 Service Worker 内部的 BUST_FETCH 处理
+        location.reload();
       } catch (e) {
         toast(formatError(e, '清理失败'), 'error');
       }
@@ -699,6 +763,7 @@
               <div class="font-medium text-slate-800">${(d.alias || short(d.device_id) || '未命名设备')}${badge}</div>
               <div class="text-xs text-slate-500">ID：${d.device_id}</div>
               <div class="text-xs text-slate-500">最近活跃：${last}</div>
+              <div class="text-xs text-slate-500">IP：${(d.last_ip || d.created_ip || '未知')}</div>
               <div class="text-xs text-slate-500 truncate">UA：${(d.user_agent || '')}</div>
             </div>
             <div class="shrink-0 flex items-center gap-2">

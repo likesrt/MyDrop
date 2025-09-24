@@ -29,10 +29,22 @@ function createMessagesRouter(options) {
       if (full.sender_device_id !== req.device_id) {
         return res.status(403).json({ error: '演示服务器只允许删除当前设备发送的消息' });
       }
+      // 删除关联文件（磁盘 + 统计）
+      let removedFiles = 0;
+      try {
+        const files = Array.isArray(full.files) ? full.files : [];
+        for (const f of files) {
+          try { await fs.promises.unlink(path.join(uploadDir, f.stored_name)); removedFiles++; } catch (_) {}
+        }
+      } catch (_) {}
 
       await db.deleteMessage(messageId);
-      logger.info('admin.message.delete', { message_id: messageId });
-      res.json({ ok: true });
+      try {
+        await db.incrementStat('cleaned_messages_total', 1);
+        if (removedFiles > 0) await db.incrementStat('cleaned_files_total', removedFiles);
+      } catch (_) {}
+      logger.info('admin.message.delete', { message_id: messageId, removed_files: removedFiles });
+      res.json({ ok: true, removed_files: removedFiles });
     } catch (err) {
       logger.error('admin.message.delete.error', { err });
       res.status(500).json({ error: '删除消息失败' });

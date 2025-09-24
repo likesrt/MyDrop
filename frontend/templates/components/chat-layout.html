@@ -24,7 +24,7 @@
     </div>
   </div>
 
-  <form id="composer" class="border-t backdrop-blur p-3 pb-safe flex flex-col gap-2">
+  <form id="composer" class="border-t backdrop-blur p-3 pb-safe flex flex-col gap-2 sticky bottom-0 z-10" style="background: var(--surface-translucent);">
     <div id="composerRow" class="flex gap-2 items-end">
       <textarea id="textInput" rows="1" class="flex-1 border rounded px-3 py-2 resize-none max-h-40 overflow-auto" placeholder="输入消息... (Enter 换行, Ctrl+Enter 发送)"></textarea>
       <label id="fileBtn" class="shrink-0 inline-flex items-center justify-center w-10 h-10 border rounded cursor-pointer select-none" title="添加文件" aria-label="添加文件">

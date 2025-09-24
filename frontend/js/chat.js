@@ -122,22 +122,65 @@ function bindChat() {
 
   const fileInput = window.MyDropUtils.qs('#fileInput');
   const selectedFiles = window.MyDropUtils.qs('#selectedFiles');
+  function renderSelectedFiles() {
+    try {
+      const files = Array.from(fileInput.files || []);
+      if (!files.length) { selectedFiles.innerHTML = ''; return; }
+      const items = files.map((f, i) => {
+        const name = window.MyDropUtils.escapeHTML(f.name || '');
+        const size = window.MyDropUtils.formatBytes(f.size || 0);
+        return `<span class="inline-flex items-center gap-2 text-[12px] md:text-[13px] bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-1 mr-2 mb-2 select-none">
+          <span class="truncate max-w-[40vw] sm:max-w-[260px]" title="${name}">${name} (${size})</span>
+          <button type="button" class="text-blue-600 hover:text-blue-800" data-remove-file-index="${i}" aria-label="移除">✕</button>
+        </span>`;
+      });
+      selectedFiles.innerHTML = `<div class="flex flex-wrap items-center">${items.join('')}</div>`;
+    } catch (_) { selectedFiles.textContent = ''; }
+  }
   fileInput.addEventListener('change', () => {
     const files = Array.from(fileInput.files || []);
     const over = files.filter(f => f.size > window.MyDropState.config.fileSizeLimitMB * 1024 * 1024);
     if (over.length) {
       window.MyDropUI.toast(`部分文件超过大小限制 ${window.MyDropState.config.fileSizeLimitMB}MB：` + over.map(f => f.name).join(', '), 'warn');
     }
-    selectedFiles.innerHTML = files.map(f => `${window.MyDropUtils.escapeHTML(f.name)} (${window.MyDropUtils.formatBytes(f.size)})`).join(', ');
+    renderSelectedFiles();
+  });
+  selectedFiles.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-remove-file-index]');
+    if (!btn) return;
+    const idx = parseInt(btn.getAttribute('data-remove-file-index'), 10);
+    if (!Number.isFinite(idx)) return;
+    try {
+      const curr = Array.from(fileInput.files || []);
+      const dt = new DataTransfer();
+      curr.forEach((f, i) => { if (i !== idx) dt.items.add(f); });
+      fileInput.files = dt.files;
+      fileInput.dispatchEvent(new Event('change'));
+      window.MyDropUI.toast('已移除 1 个附件', 'success');
+    } catch (_) {}
   });
 
   const composer = window.MyDropUtils.qs('#composer');
   const sendBtn = window.MyDropUtils.qs('#sendBtn');
   const msgContainer = window.MyDropUtils.qs('#messages');
+  const updateBottomPadding = () => {
+    try { if (composer && msgContainer) msgContainer.style.paddingBottom = (composer.offsetHeight + 8) + 'px'; } catch (_) {}
+  };
   if (msgContainer) {
     const updateStick = () => { try { window.MyDropState.stickToBottom = window.MyDropUtils.isNearBottom(msgContainer, 80); } catch (_) {} };
     updateStick();
     msgContainer.addEventListener('scroll', updateStick);
+    updateBottomPadding();
+    // 图片灯箱：点击消息中的图片放大预览
+    msgContainer.addEventListener('click', (e) => {
+      const img = e.target && e.target.tagName === 'IMG' ? e.target : null;
+      if (!img) return;
+      // 仅响应消息列表中的图片
+      const root = img.closest('#messageList');
+      if (!root) return;
+      e.preventDefault();
+      try { window.MyDropUI.openImageLightbox(img.src, img.alt || ''); } catch (_) {}
+    });
   }
 
   const textInput = window.MyDropUtils.qs('#textInput');
@@ -159,6 +202,7 @@ function bindChat() {
     const padding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
     const max = lineHeight * maxRows + padding;
     textInput.style.height = Math.min(textInput.scrollHeight, max) + 'px';
+    updateBottomPadding();
   };
   ['input','change'].forEach(evt => textInput.addEventListener(evt, syncHeight));
   setTimeout(syncHeight, 0);
@@ -261,7 +305,7 @@ function bindChat() {
       // Reset inputs
       textInput.value = '';
       fileInput.value = '';
-      selectedFiles.textContent = '';
+      renderSelectedFiles();
       syncHeight();
 
       // 维持焦点与光标位置
@@ -292,11 +336,13 @@ function bindChat() {
     const onVV = () => setTimeout(() => {
       const c = window.MyDropUtils.qs('#messages');
       if (c && window.MyDropUtils.isNearBottom(c, 80)) jumpToBottom();
+      updateBottomPadding();
     }, 50);
     window.visualViewport.addEventListener('resize', onVV);
     window.addEventListener('orientationchange', () => setTimeout(() => {
       const c = window.MyDropUtils.qs('#messages');
       if (c && window.MyDropUtils.isNearBottom(c, 80)) jumpToBottom();
+      updateBottomPadding();
     }, 300));
   }
 

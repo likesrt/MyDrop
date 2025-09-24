@@ -1,4 +1,5 @@
 require('dotenv').config();
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -18,23 +19,39 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, path: '/ws' });
 
 // Config
+// Ensure strong JWT secret: if default example is detected, generate and persist to .env
+const DEFAULT_JWT = 'Starter-Twiddling-Glacier-Washout8-Pegboard-Unharmed-Snugly-Laborer';
+try {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === DEFAULT_JWT) {
+    const secret = crypto.randomBytes(48).toString('base64url');
+    // Update .env file on disk (create if missing)
+    const envPath = path.join(process.cwd(), '.env');
+    let content = '';
+    try { content = fs.readFileSync(envPath, 'utf8'); } catch (_) { content = ''; }
+    if (/^\s*JWT_SECRET\s*=\s*/m.test(content)) {
+      content = content.replace(/^\s*JWT_SECRET\s*=.*$/m, `JWT_SECRET="${secret}"`);
+    } else {
+      content = (content ? content.trimEnd() + '\n' : '') + `JWT_SECRET="${secret}"\n`;
+    }
+    try {
+      fs.writeFileSync(envPath, content, { encoding: 'utf8' });
+      try { fs.chmodSync(envPath, 0o600); } catch (_) {}
+    } catch (_) {}
+    process.env.JWT_SECRET = secret; // ensure current process uses the generated secret
+  }
+} catch (_) {}
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const LOG_FILE = process.env.LOG_FILE || '';
 const { verifyJWT } = require('./backend/services/auth');
 const TOKEN_COOKIE = 'token';
-const MAX_FILES = process.env.MAX_FILES ? parseInt(process.env.MAX_FILES, 10) : 10; // total files cap
-const FILE_SIZE_LIMIT_MB = process.env.FILE_SIZE_LIMIT_MB ? parseInt(process.env.FILE_SIZE_LIMIT_MB, 10) : 5;
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
-const JWT_EXPIRES_DAYS = process.env.JWT_EXPIRES_DAYS ? parseInt(process.env.JWT_EXPIRES_DAYS, 10) : 7;
-const TEMP_LOGIN_TTL_MINUTES = process.env.TEMP_LOGIN_TTL_MINUTES ? Math.max(1, parseInt(process.env.TEMP_LOGIN_TTL_MINUTES, 10)) : 10;
-const HEADER_AUTO_HIDE = /^(1|true|yes)$/i.test(process.env.HEADER_AUTO_HIDE || '');
-// Cleanup configuration
-const AUTO_CLEANUP_ENABLED = !/^false|0|no$/i.test(process.env.AUTO_CLEANUP_ENABLED || 'true');
-const CLEANUP_INTERVAL_MINUTES = process.env.CLEANUP_INTERVAL_MINUTES ? Math.max(1, parseInt(process.env.CLEANUP_INTERVAL_MINUTES, 10)) : 15;
-const MESSAGE_TTL_DAYS = process.env.MESSAGE_TTL_DAYS ? Math.max(0, parseInt(process.env.MESSAGE_TTL_DAYS, 10)) : 0; // 0 = disabled
-const DEVICE_INACTIVE_DAYS = process.env.DEVICE_INACTIVE_DAYS ? Math.max(0, parseInt(process.env.DEVICE_INACTIVE_DAYS, 10)) : 0; // 0 = disabled
+// Runtime settings backed by DB (migrated from env)
+const settings = require('./backend/services/settings');
+// DEVICE_INACTIVE_DAYS remains env-controlled for now
+// DEVICE_INACTIVE_DAYS moved to settings; env fallback is ignored once settings loaded
+const DEVICE_INACTIVE_DAYS_FALLBACK = process.env.DEVICE_INACTIVE_DAYS ? Math.max(0, parseInt(process.env.DEVICE_INACTIVE_DAYS, 10)) : 0;
 // PWA static asset version for SW cache-busting via query param
 let PKG_VERSION = '0.0.0';
 try { PKG_VERSION = require('./package.json').version || '0.0.0'; } catch (_) {}
@@ -46,6 +63,15 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 async function boot() {
   try {
     await db.init();
+    // Initialize runtime settings
+    settings.init(db);
+    await settings.load();
+    // Apply initial log level
+    try {
+      const lv = String(settings.getAllSync().logLevel || 'info').toLowerCase();
+      const map = { debug: 10, info: 20, warn: 30, error: 40 };
+      if (logger && map[lv]) logger.level = map[lv];
+    } catch (_) {}
 
     // Helpful error handler for common listen failures (port in use, permission)
     server.on('error', (err) => {
@@ -73,8 +99,20 @@ async function boot() {
       printStartupBanner();
     });
 
-    if (AUTO_CLEANUP_ENABLED) scheduleCleanup();
-    // demo分支：启动定时清理
+    // Setup cleanup based on settings and watch for changes
+    scheduleCleanup();
+    try {
+      settings.onChange((cfg) => {
+        // Update logger level dynamically
+        try {
+          const lv = String((cfg && cfg.logLevel) || 'info').toLowerCase();
+          const map = { debug: 10, info: 20, warn: 30, error: 40 };
+          if (logger && map[lv]) logger.level = map[lv];
+        } catch (_) {}
+        rescheduleCleanup();
+      });
+    } catch (_) {}
+    // demo分支：启动定时清理（5分钟清空演示数据）
     scheduleDemoCleanup();
   } catch (e) {
     logger.error('db.init.failed', { err: e });
@@ -185,14 +223,14 @@ const apiRouter = createApiRouter({
   tokenCookieName: TOKEN_COOKIE,
   db,
   uploadDir: UPLOAD_DIR,
-  limits: { maxFiles: MAX_FILES, fileSizeLimitMB: FILE_SIZE_LIMIT_MB },
+  limits: { maxFiles: settings.getAllSync().maxFiles, fileSizeLimitMB: settings.getAllSync().fileSizeLimitMB },
   broadcast: (message) => broadcastMessage(message),
   jwtSecret: JWT_SECRET,
-  jwtExpiresDays: JWT_EXPIRES_DAYS,
-  tempLoginMinutes: TEMP_LOGIN_TTL_MINUTES,
+  // Use settings service for dynamic values in routers
+  settings,
   kickDevice: kickDeviceById,
   kickUserSessions,
-  features: { autoHideHeader: HEADER_AUTO_HIDE, assetVersion: ASSET_VERSION },
+  features: { autoHideHeader: settings.getAllSync().headerAutoHide, assetVersion: ASSET_VERSION },
 });
 app.use(apiRouter);
 
@@ -271,12 +309,15 @@ process.on('uncaughtException', (err) => {
 });
 
 // Periodic cleanup of old data and inactive devices
+let __cleanupIntervalHandle = null;
 function scheduleCleanup() {
   const runOnce = async () => {
     try {
       let removedFiles = 0;
       let removedMessages = 0;
       let removedDevices = 0;
+      const s = settings.getAllSync();
+      const MESSAGE_TTL_DAYS = Math.max(0, s.messageTtlDays | 0);
       if (MESSAGE_TTL_DAYS > 0) {
         const cutoff = Date.now() - MESSAGE_TTL_DAYS * 24 * 60 * 60 * 1000;
         try {
@@ -293,6 +334,7 @@ function scheduleCleanup() {
           if (removedMessages > 0) await db.incrementStat('cleaned_messages_total', removedMessages);
         } catch (_) {}
       }
+      const DEVICE_INACTIVE_DAYS = Math.max(0, (s.deviceInactiveDays != null ? s.deviceInactiveDays : DEVICE_INACTIVE_DAYS_FALLBACK) | 0);
       if (DEVICE_INACTIVE_DAYS > 0) {
         const beforeTs = Date.now() - DEVICE_INACTIVE_DAYS * 24 * 60 * 60 * 1000;
         try { removedDevices = await db.deleteInactiveDevices(beforeTs); } catch (_) { removedDevices = 0; }
@@ -303,9 +345,20 @@ function scheduleCleanup() {
       logger.error('cleanup.error', { err: e });
     }
   };
+  // Clear any existing interval
+  try { if (__cleanupIntervalHandle) { clearInterval(__cleanupIntervalHandle); __cleanupIntervalHandle = null; } } catch (_) {}
+  const s = settings.getAllSync();
+  if (!s.autoCleanupEnabled) return; // disabled
+  const CLEANUP_INTERVAL_MINUTES = (s.cleanupIntervalAuto ? 720 : Math.max(30, (s.cleanupIntervalMinutes | 0)));
   // run once on boot (delayed slightly) and then at interval
   setTimeout(runOnce, 10 * 1000).unref?.();
-  setInterval(runOnce, CLEANUP_INTERVAL_MINUTES * 60 * 1000).unref?.();
+  __cleanupIntervalHandle = setInterval(runOnce, CLEANUP_INTERVAL_MINUTES * 60 * 1000);
+  try { __cleanupIntervalHandle.unref?.(); } catch (_) {}
+}
+
+function rescheduleCleanup() {
+  try { if (__cleanupIntervalHandle) { clearInterval(__cleanupIntervalHandle); __cleanupIntervalHandle = null; } } catch (_) {}
+  scheduleCleanup();
 }
 
 // demo分支：五分钟定时清空数据库功能
