@@ -17,35 +17,28 @@ window.MyDropState = {
   _scrollTimer: null,
 };
 
-async function swapAppContent(html) {
+async function replaceWithFade(html) {
   const app = window.MyDropUtils.qs('#app');
   if (!app) return;
-  const next = document.createElement('div');
-  next.style.opacity = '0';
-  next.style.transition = 'opacity .16s ease';
-  next.innerHTML = html;
-  app.appendChild(next);
-  // 渐入新内容
-  requestAnimationFrame(() => { next.style.opacity = '1'; });
-  // 渐入完成后，移除旧内容（除 next 自身）
-  setTimeout(() => {
-    try {
-      const children = Array.from(app.children);
-      for (const el of children) { if (el !== next) el.remove(); }
-    } catch (_) {}
-  }, 200);
+  try { app.style.transition = 'opacity .16s ease'; } catch (_) {}
+  try { app.style.opacity = '0'; } catch (_) {}
+  // 下一帧替换内容，再下一帧淡入，避免布局叠加导致的跳动
+  requestAnimationFrame(() => {
+    app.innerHTML = html;
+    requestAnimationFrame(() => { try { app.style.opacity = '1'; } catch (_) {} });
+  });
 }
 
 async function render() {
   const app = window.MyDropUtils.qs('#app');
   if (!window.MyDropState.me) {
     const html = await window.MyDropAuth.renderLogin();
-    await swapAppContent(html);
+    await replaceWithFade(html);
     window.MyDropAuth.bindLogin();
     return;
   }
   const html = await window.MyDropChat.renderChat();
-  await swapAppContent(html);
+  await replaceWithFade(html);
   window.MyDropChat.bindChat();
   try { attachMediaLoadScroll(window.MyDropUtils.qs('#messageList') || document); } catch (_) {}
   // 渲染完成后，如有锚点则跳转并高亮；否则定位到底部
