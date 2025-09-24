@@ -5,16 +5,29 @@
   let currentDeviceId = null;
 
   async function api(path, opts={}) {
-    const res = await fetch(path, opts);
-    if (!res.ok) {
-      let msg = res.status === 401 ? '未登录' : '请求失败';
-      try { const j = await res.json(); if (j && j.error) msg = j.error; } catch(_){}
-      if (res.status === 401) { location.href = '/'; }
-      const err = new Error(msg);
-      err.status = res.status;
-      throw err;
+    const timeoutMs = (typeof opts.timeoutMs === 'number' && opts.timeoutMs > 0) ? opts.timeoutMs : 15000;
+    const controller = new AbortController();
+    const id = setTimeout(() => { try { controller.abort(); } catch(_){} }, timeoutMs);
+    const { timeoutMs: _omit, signal: _s, ...rest } = opts || {};
+    try {
+      const res = await fetch(path, { ...rest, signal: controller.signal });
+      if (!res.ok) {
+        let msg = res.status === 401 ? '未登录' : '请求失败';
+        try { const j = await res.json(); if (j && j.error) msg = j.error; } catch(_){}
+        if (res.status === 401) { location.href = '/'; }
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+      }
+      return res.json();
+    } catch (err) {
+      if (err && (err.name === 'AbortError' || /aborted|timeout/i.test(String(err.message||'')))) {
+        const e = new Error('请求超时'); e.status = 408; throw e;
+      }
+      const e = new Error('请求失败'); e.status = 0; throw e;
+    } finally {
+      clearTimeout(id);
     }
-    return res.json();
   }
 
   function formatError(err, tip='') {

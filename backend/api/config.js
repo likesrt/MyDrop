@@ -10,6 +10,7 @@ function createConfigRouter(options) {
       maxFiles: limits.maxFiles,
       fileSizeLimitMB: limits.fileSizeLimitMB,
       headerAutoHide: !!features.autoHideHeader,
+      assetVersion: features.assetVersion || null,
     });
   });
 

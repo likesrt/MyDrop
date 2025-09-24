@@ -10,18 +10,31 @@ class ApiError extends Error {
 }
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, opts);
-  if (!res.ok) {
-    let msg = res.status === 401 ? '未登录' : '请求失败';
-    let body = null;
-    try { body = await res.json(); if (body && body.error) msg = body.error; } catch (_) {}
-    if (res.status === 401 && location.pathname !== '/') {
-      try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
-      location.replace('/');
+  const timeoutMs = (typeof opts.timeoutMs === 'number' && opts.timeoutMs > 0) ? opts.timeoutMs : 15000;
+  const controller = new AbortController();
+  const id = setTimeout(() => { try { controller.abort(); } catch (_) {} }, timeoutMs);
+  const { timeoutMs: _omit, signal: _sig, ...rest } = opts || {};
+  try {
+    const res = await fetch(path, { ...rest, signal: controller.signal });
+    if (!res.ok) {
+      let msg = res.status === 401 ? '未登录' : '请求失败';
+      let body = null;
+      try { body = await res.json(); if (body && body.error) msg = body.error; } catch (_) {}
+      if (res.status === 401 && location.pathname !== '/') {
+        try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
+        location.replace('/');
+      }
+      throw new ApiError(msg, res.status, path, body);
     }
-    throw new ApiError(msg, res.status, path, body);
+    return res.json();
+  } catch (err) {
+    if (err && (err.name === 'AbortError' || /aborted|timeout/i.test(String(err.message||'')))) {
+      throw new ApiError('请求超时', 408, path);
+    }
+    throw new ApiError('请求失败', 0, path);
+  } finally {
+    clearTimeout(id);
   }
-  return res.json();
 }
 
 async function loadBasics() {

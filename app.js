@@ -131,7 +131,7 @@ const apiRouter = createApiRouter({
   jwtExpiresDays: JWT_EXPIRES_DAYS,
   kickDevice: kickDeviceById,
   kickUserSessions,
-  features: { autoHideHeader: HEADER_AUTO_HIDE },
+  features: { autoHideHeader: HEADER_AUTO_HIDE, assetVersion: ASSET_VERSION },
 });
 app.use(apiRouter);
 
