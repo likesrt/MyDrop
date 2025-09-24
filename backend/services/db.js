@@ -1,7 +1,11 @@
+const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3');
 
-const DB_PATH = path.join(__dirname, 'sqlite.db');
+// 数据库固定使用项目根目录下的 database/sqlite.db，避免与源码混放。
+// 容器中工作目录为 /app，因此绑定挂载 ./database:/app/database 即可持久化。
+const DB_DIR = path.join(__dirname, '..', '..', 'database');
+const DB_PATH = path.join(DB_DIR, 'sqlite.db');
 let db;
 
 function run(sql, params = []) {
@@ -32,6 +36,7 @@ function all(sql, params = []) {
 }
 
 async function init() {
+  try { fs.mkdirSync(DB_DIR, { recursive: true }); } catch (_) {}
   db = new sqlite3.Database(DB_PATH);
   await run('PRAGMA journal_mode = WAL');
   await run('PRAGMA foreign_keys = ON');

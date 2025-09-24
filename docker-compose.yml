@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  mydrop:
+    build: .
+    image: mydrop:latest
+    container_name: mydrop
+    environment:
+      - HOST=0.0.0.0
+    env_file:
+      - ./.env
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      # 挂载上传文件，数据库和日志到宿主机，便于持久化
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./database:/app/database
+    restart: unless-stopped

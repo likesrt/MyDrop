@@ -1,0 +1,17 @@
+# 排除构建上下文中的开发产物与敏感文件，减小镜像体积
+node_modules
+.git
+.gitignore
+.claude
+Dockerfile
+docker-compose.yml
+.env
+uploads
+logs
+database
+sqlite.db*
+*.log
+tests
+README.md
+CLAUDE.md
+AGENTS.md
