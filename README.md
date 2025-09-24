@@ -48,7 +48,7 @@ wget -O docker-compose.yml https://raw.githubusercontent.com/likesrt/MyDrop/refs
 # 4) 可选：创建持久化目录（也可交由 Docker 自动创建）
 mkdir -p uploads logs database
 
-# 5) 启动（默认拉取 main 稳定镜像：latest）
+# 5) 启动（默认拉取 main 稳定镜像：main）
 docker compose up -d
 
 # 6) 常用操作

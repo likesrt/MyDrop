@@ -342,7 +342,6 @@ function scheduleDemoCleanup() {
   // 5分钟定时清理
   setInterval(runDemoCleanup, 5 * 60 * 1000).unref?.();
 }
-
 // 打印启动横幅与常用提示（始终输出到控制台，同时写入日志）
 function printStartupBanner() {
   try {
@@ -363,7 +362,7 @@ function printStartupBanner() {
     ].filter(Boolean);
 
     // Console banner
-    const banner = '\n' + lines.map(s => `[MyDrop] ${s}`).join('\n') + '\n';
+    const banner = '\n' + lines.map((s) => `[MyDrop] ${s}`).join('\n') + '\n';
     try { console.log(banner); } catch (_) {}
 
     // Structured log
