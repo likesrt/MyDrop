@@ -94,58 +94,45 @@ function bindLogin() {
     }
   });
 
-  // Setup Passkey button with clear UX on insecure context
+  // Passkey button: always toast reasons on click (no static hints)
   (async () => {
     const passkeyBtn = window.MyDropUtils.qs('#passkeyLoginBtn');
     if (!passkeyBtn) return;
-    if (!('PublicKeyCredential' in window)) {
-      // Not supported by browser; keep hidden
-      return;
-    }
-    // Ensure button visible
+    // Always show the button; handle capability checks on click
     passkeyBtn.classList.remove('hidden');
 
-    // Add hint area below button
-    let hint = document.getElementById('passkeyHint');
-    if (!hint) {
-      hint = document.createElement('div');
-      hint.id = 'passkeyHint';
-      hint.className = 'text-xs text-slate-500 text-center mt-2';
-      passkeyBtn.insertAdjacentElement('afterend', hint);
-    }
-
-    const isHttps = location.protocol === 'https:';
-    const isLocal = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
-    const secureOK = (window.isSecureContext === true) && (isHttps || isLocal);
-
-    // Detect platform authenticator availability (best-effort)
-    let platformOK = true;
-    try {
-      if (window.PublicKeyCredential && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
-        platformOK = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      }
-    } catch (_) { platformOK = true; }
-
-    if (!secureOK) {
-      passkeyBtn.setAttribute('disabled', 'true');
-      passkeyBtn.title = '通行密钥需要 HTTPS 或 localhost';
-      hint.textContent = '通行密钥需要 HTTPS 或 localhost，当前连接不支持。';
-      return;
-    }
-    if (!platformOK) {
-      passkeyBtn.setAttribute('disabled', 'true');
-      passkeyBtn.title = '当前设备不支持通行密钥';
-      hint.textContent = '当前设备不支持通行密钥。';
-      return;
-    }
-
-    // All good: enable click handler
-    passkeyBtn.removeAttribute('disabled');
-    passkeyBtn.title = '';
-    hint.textContent = '';
     passkeyBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       const alias = (window.MyDropUtils.qs('#loginAlias')?.value || '').toString();
+
+      // Browser support
+      if (!('PublicKeyCredential' in window)) {
+        try { window.MyDropUI.toast('当前浏览器不支持通行密钥', 'warn'); } catch (_) { alert('当前浏览器不支持通行密钥'); }
+        return;
+      }
+
+      // Security context
+      const isHttps = location.protocol === 'https:';
+      const isLocal = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+      const secureOK = (window.isSecureContext === true) && (isHttps || isLocal);
+      if (!secureOK) {
+        try { window.MyDropUI.toast('通行密钥需要 HTTPS 或 localhost 访问', 'warn'); } catch (_) { alert('通行密钥需要 HTTPS 或 localhost 访问'); }
+        return;
+      }
+
+      // Platform authenticator availability (best-effort)
+      let platformOK = true;
+      try {
+        if (window.PublicKeyCredential && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+          platformOK = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        }
+      } catch (_) { platformOK = true; }
+      if (!platformOK) {
+        try { window.MyDropUI.toast('当前设备不支持通行密钥', 'warn'); } catch (_) { alert('当前设备不支持通行密钥'); }
+        return;
+      }
+
+      // Proceed with passkey login (handles its own toasts on error)
       await passkeyLogin(alias);
     });
   })();

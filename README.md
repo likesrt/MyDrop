@@ -60,9 +60,6 @@ docker compose down       # 停止容器
   - 在 `.env` 修改 `PORT=8080` → 发布为 `8080:8080`（容器也监听 8080）。
   - 仅本机访问：在 `docker-compose.yml` 注释处启用 `127.0.0.1:${PORT:-3000}:${PORT:-3000}`。
 
-提示（通行密钥 WebAuthn）：
-- 登录使用通行密钥需在 HTTPS 域名或 localhost 下访问；HTTP 环境下按钮会禁用并在登录页提示原因。
-- 若跨域名访问导致“invalid domain”，请确保站点域名与注册凭证时的 RP ID 一致（通常为当前域名）。
 
 ## 目录结构
 
