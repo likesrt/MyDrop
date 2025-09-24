@@ -33,7 +33,7 @@ async function handleTotpFlow(mfaToken) {
   }
 }
 
-async function passkeyLogin(alias) {
+async function passkeyLogin(alias, remember) {
   try {
     const start = await window.MyDropAPI.api('/webauthn/login/start', { method: 'POST' });
     const pub = start.publicKey;
@@ -49,6 +49,7 @@ async function passkeyLogin(alias) {
       id: cred.id,
       deviceId: window.MyDropUtils.getDeviceId(),
       alias: alias || '',
+      remember: !!remember,
       response: {
         clientDataJSON: b64url(resp.clientDataJSON),
         authenticatorData: b64url(resp.authenticatorData),
@@ -77,6 +78,7 @@ function bindLogin() {
       password: fd.get('password'),
       alias: fd.get('alias') || '',
       deviceId: window.MyDropUtils.getDeviceId(),
+      remember: !!fd.get('remember')
     };
     try {
       const resp = await window.MyDropAPI.api('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -97,6 +99,7 @@ function bindLogin() {
   // Passkey button: always toast reasons on click (no static hints)
   (async () => {
     const passkeyBtn = window.MyDropUtils.qs('#passkeyLoginBtn');
+    const qrBtn = window.MyDropUtils.qs('#qrLoginBtn');
     if (!passkeyBtn) return;
     // Always show the button; handle capability checks on click
     passkeyBtn.classList.remove('hidden');
@@ -104,6 +107,7 @@ function bindLogin() {
     passkeyBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       const alias = (window.MyDropUtils.qs('#loginAlias')?.value || '').toString();
+      const remember = !!(window.MyDropUtils.qs('#rememberMe')?.checked);
 
       // Security context first: prefer域名/协议提示而非浏览器不支持
       const isHttps = location.protocol === 'https:';
@@ -133,8 +137,59 @@ function bindLogin() {
       }
 
       // Proceed with passkey login (handles its own toasts on error)
-      await passkeyLogin(alias);
+      await passkeyLogin(alias, remember);
     });
+
+    if (qrBtn) {
+      qrBtn.addEventListener('click', async () => {
+        try {
+          const start = await window.MyDropAPI.api('/login/qr/start', { method: 'POST' });
+          const rid = start.rid; const code = start.code; const expiresAt = start.expiresAt || 0;
+          const alias = (window.MyDropUtils.qs('#loginAlias')?.value || '').toString();
+          const remember = !!(window.MyDropUtils.qs('#rememberMe')?.checked);
+          const deviceId = window.MyDropUtils.getDeviceId();
+          const imgUrl = `/login/qr/svg?rid=${encodeURIComponent(rid)}&code=${encodeURIComponent(code)}`;
+          const endAt = expiresAt ? new Date(expiresAt) : null;
+
+          let timer = null; let closed = false;
+          const poll = async () => {
+            if (closed) return;
+            try {
+              const st = await window.MyDropAPI.api(`/login/qr/status?rid=${encodeURIComponent(rid)}&code=${encodeURIComponent(code)}`);
+              if (st && st.approved && !st.consumed) {
+                const body = { rid, code, deviceId, alias, remember };
+                await window.MyDropAPI.api('/login/qr/consume', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                closed = true;
+                try { Swal.close(); } catch (_) {}
+                await window.MyDropAPI.loadBasics();
+                await window.MyDropApp.render();
+                window.MyDropWebSocket.openWS();
+                await window.MyDropAPI.loadInitialMessages();
+                await window.MyDropApp.render();
+                return;
+              }
+            } catch (_) { /* ignore transient */ }
+            timer = setTimeout(poll, 1500);
+          };
+
+          try {
+            await Swal.fire({
+              title: '扫码登录',
+              html: `<div class="space-y-2"><img alt="二维码" src="${imgUrl}" class="mx-auto border rounded" /><div class="text-xs text-slate-500">请使用已登录设备扫描二维码进行授权${endAt?`，有效期至：${endAt.toLocaleTimeString()}`:''}</div></div>`,
+              showConfirmButton: false,
+              showCancelButton: true,
+              cancelButtonText: '取消',
+              didOpen: () => { poll(); },
+              willClose: () => { closed = true; try { if (timer) clearTimeout(timer); } catch (_) {} },
+            });
+          } finally {
+            closed = true; try { if (timer) clearTimeout(timer); } catch (_) {}
+          }
+        } catch (err) {
+          window.MyDropUI.toast(window.MyDropUI.formatError(err, '无法开始扫码登录'), 'error');
+        }
+      });
+    }
   })();
 }
 

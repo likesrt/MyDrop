@@ -53,6 +53,10 @@
       try { await api('/config'); } catch(_) {}
       const me = await api('/me');
       qs('#currentUsername').textContent = me.user.username;
+      try {
+        const statusEl = qs('#qrLoginStatus');
+        if (statusEl) statusEl.textContent = (me?.user?.qrLoginEnabled ? '已开启' : '已关闭');
+      } catch (_) {}
       currentDeviceId = me?.device?.device_id || null;
       const notice = qs('#notice');
       if (me.user.needsPasswordChange) {
@@ -98,8 +102,27 @@
       }
     });
 
-    // MFA + Passkeys
+    // MFA + Passkeys + QR login toggle
     try { await setupMFAAndPasskeys(); } catch (_) {}
+    try { setupQrLoginToggle(); } catch (_) {}
+  }
+
+  function setupQrLoginToggle() {
+    const statusEl = qs('#qrLoginStatus');
+    const btnOn = qs('#qrLoginEnableBtn');
+    const btnOff = qs('#qrLoginDisableBtn');
+    const refresh = async () => {
+      try {
+        const me = await api('/me');
+        if (statusEl) statusEl.textContent = (me?.user?.qrLoginEnabled ? '已开启' : '已关闭');
+      } catch (_) {}
+    };
+    if (btnOn) btnOn.addEventListener('click', async () => {
+      try { await api('/settings/qr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true }) }); toast('已开启扫码登录', 'success'); refresh(); } catch (e) { toast(formatError(e, '操作失败'), 'error'); }
+    });
+    if (btnOff) btnOff.addEventListener('click', async () => {
+      try { await api('/settings/qr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: false }) }); toast('已关闭扫码登录', 'success'); refresh(); } catch (e) { toast(formatError(e, '操作失败'), 'error'); }
+    });
   }
 
   function bindTabs() {

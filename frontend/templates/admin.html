@@ -91,6 +91,18 @@
         <hr class="my-6" />
 
         <div class="space-y-3">
+          <h3 class="font-medium">扫码登录</h3>
+          <div class="text-sm text-slate-600">使用已登录设备扫描二维码以在新设备上登录。</div>
+          <div class="flex items-center gap-2">
+            <div id="qrLoginStatus" class="text-sm text-slate-700">读取中…</div>
+            <button id="qrLoginEnableBtn" class="btn pressable">开启</button>
+            <button id="qrLoginDisableBtn" class="btn pressable">关闭</button>
+          </div>
+        </div>
+
+        <hr class="my-6" />
+
+        <div class="space-y-3">
           <h3 class="font-medium">通行密钥（WebAuthn）</h3>
           <div class="text-sm text-slate-600">在设备上使用生物识别或系统锁登录。</div>
           <div class="flex items-center gap-2">

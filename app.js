@@ -26,6 +26,7 @@ const FILE_SIZE_LIMIT_MB = process.env.FILE_SIZE_LIMIT_MB ? parseInt(process.env
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const JWT_EXPIRES_DAYS = process.env.JWT_EXPIRES_DAYS ? parseInt(process.env.JWT_EXPIRES_DAYS, 10) : 7;
+const TEMP_LOGIN_TTL_MINUTES = process.env.TEMP_LOGIN_TTL_MINUTES ? Math.max(1, parseInt(process.env.TEMP_LOGIN_TTL_MINUTES, 10)) : 10;
 const HEADER_AUTO_HIDE = /^(1|true|yes)$/i.test(process.env.HEADER_AUTO_HIDE || '');
 // Cleanup configuration
 const AUTO_CLEANUP_ENABLED = !/^false|0|no$/i.test(process.env.AUTO_CLEANUP_ENABLED || 'true');
@@ -150,6 +151,7 @@ const apiRouter = createApiRouter({
   broadcast: (message) => broadcastMessage(message),
   jwtSecret: JWT_SECRET,
   jwtExpiresDays: JWT_EXPIRES_DAYS,
+  tempLoginMinutes: TEMP_LOGIN_TTL_MINUTES,
   kickDevice: kickDeviceById,
   kickUserSessions,
   features: { autoHideHeader: HEADER_AUTO_HIDE, assetVersion: ASSET_VERSION },

@@ -15,6 +15,13 @@
         <label class="block text-sm text-slate-600 mb-1">设备别名（可选）</label>
         <input id="loginAlias" name="alias" class="w-full border rounded px-3 py-2" placeholder="例如：办公室电脑" />
       </div>
+      <div class="flex items-center justify-between">
+        <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+          <input id="rememberMe" name="remember" type="checkbox" class="w-4 h-4" />
+          <span>记住我</span>
+        </label>
+        <button id="qrLoginBtn" type="button" class="text-sm text-sky-700 hover:underline">扫码登录</button>
+      </div>
       <button id="loginSubmitBtn" class="btn btn-primary pressable w-full py-2">登录</button>
       <div class="text-center text-xs text-slate-500">或</div>
       <button id="passkeyLoginBtn" type="button" class="btn pressable w-full py-2 hidden">使用通行密钥登录</button>
