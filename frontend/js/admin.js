@@ -60,7 +60,8 @@
         notice.classList.remove('hidden');
       }
     } catch (e) {
-      location.href = '/';
+      try { toast(formatError(e, '请求失败'), 'error'); } catch(_) {}
+      setTimeout(() => { location.href = '/'; }, 600);
       return;
     }
 

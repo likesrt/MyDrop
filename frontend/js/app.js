@@ -65,7 +65,14 @@ function attachMediaLoadScroll() {
   try {
     await window.MyDropAPI.loadBasics();
     basicsOk = true;
-  } catch (_) { basicsOk = false; }
+  } catch (err) {
+    basicsOk = false;
+    try {
+      const isApiErr = err && err.name === 'ApiError';
+      const msg = isApiErr && err.status === 408 ? '请求超时，请稍后重试' : (isApiErr && err.message ? err.message : '请求失败');
+      window.MyDropUI.toast(msg, 'error');
+    } catch (_) {}
+  }
 
   if (basicsOk) {
     try {
