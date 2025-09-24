@@ -81,7 +81,9 @@ function attachMediaLoadScroll() {
       await window.MyDropAPI.loadInitialMessages(needMore ? 1000 : 100);
     } catch (_) {}
     await render();
-    window.MyDropWebSocket.openWS();
+    if (window.MyDropState.me) {
+      window.MyDropWebSocket.openWS();
+    }
   } else {
     // 未登录或 API 暂不可用，先渲染登录页
     await render();
