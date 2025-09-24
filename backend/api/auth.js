@@ -238,6 +238,9 @@ function createAuthRouter(options) {
   // TOTP setup: begin (generate secret + otpauth uri)
   router.post('/mfa/totp/begin', requireAuth, async (req, res) => {
     try {
+      // demo分支：禁用TOTP开启功能
+      return res.status(403).json({ error: '演示服务器已禁用TOTP功能' });
+
       const { password } = req.body || {};
       const user = await db.getUserById(req.user.id);
       if (!verifyPassword(password || '', user.password_hash)) {
@@ -257,6 +260,9 @@ function createAuthRouter(options) {
   // TOTP enable
   router.post('/mfa/totp/enable', requireAuth, async (req, res) => {
     try {
+      // demo分支：禁用TOTP开启功能
+      return res.status(403).json({ error: '演示服务器已禁用TOTP功能' });
+
       const { secret, code } = req.body || {};
       const user = await db.getUserById(req.user.id);
       if (!secret || !code) return res.status(400).json({ error: '缺少参数' });
@@ -288,6 +294,9 @@ function createAuthRouter(options) {
   // TOTP disable
   router.post('/mfa/totp/disable', requireAuth, async (req, res) => {
     try {
+      // demo分支：禁用TOTP关闭功能
+      return res.status(403).json({ error: '演示服务器已禁用TOTP功能' });
+
       const { password } = req.body || {};
       const user = await db.getUserById(req.user.id);
       if (!verifyPassword(password || '', user.password_hash)) {
@@ -423,6 +432,9 @@ function createAuthRouter(options) {
   // Toggle QR login availability
   router.post('/settings/qr', requireAuth, async (req, res) => {
     try {
+      // demo分支：禁用扫码登录设置变更，保持默认开启
+      return res.status(403).json({ error: '演示服务器已禁用扫码登录设置变更' });
+
       const { enabled } = req.body || {};
       const user = await db.getUserById(req.user.id);
       if (!user) return res.status(404).json({ error: '用户不存在' });

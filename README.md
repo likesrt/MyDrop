@@ -35,7 +35,7 @@ yarn start
 推荐使用 Docker 部署，步骤简单、镜像体积小且默认带持久化挂载。
 
 ```bash
-# 1) 克隆仓库并进入目录（请替换为你的仓库地址与目录名）
+# 1) 克隆仓库并进入目录
 git clone https://github.com/likesrt/mydrop.git
 cd mydrop
 

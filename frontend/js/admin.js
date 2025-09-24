@@ -738,7 +738,8 @@
         deviceSel.innerHTML = options.join('');
       }
       const clearBtn = qs('#clearAllMessagesBtn');
-      if (clearBtn) {
+      if (clearBtn && !clearBtn._demoEventBound) {
+        clearBtn._demoEventBound = true; // 防重复绑定标记
         clearBtn.addEventListener('click', async () => {
           const ok1 = await showConfirm('确认清空所有消息与文件？此操作不可恢复');
           if (!ok1) return;
@@ -749,7 +750,7 @@
             toast('已清空所有消息', 'success');
             renderMessages();
           } catch (e) { toast(formatError(e, '清空失败'), 'error'); }
-        }, { once: true });
+        });
       }
 
       const renderList = async () => {
