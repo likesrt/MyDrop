@@ -691,14 +691,8 @@
           navigator.serviceWorker?.controller?.postMessage({ type: 'BUST_FETCH' });
         } catch (_) {}
         await toast(`已清除 ${removed} 个缓存条目，正在刷新以加载最新资源…`, 'success');
-        // 强制刷新并携带随机查询参数，确保从网络拉取最新静态资源
-        try {
-          const url = new URL(location.href);
-          url.searchParams.set('r', Date.now());
-          location.replace(url.toString());
-        } catch (_) {
-          location.reload();
-        }
+        // 仅刷新页面；静态资源的缓存破坏由 Service Worker 内部的 BUST_FETCH 处理
+        location.reload();
       } catch (e) {
         toast(formatError(e, '清理失败'), 'error');
       }
