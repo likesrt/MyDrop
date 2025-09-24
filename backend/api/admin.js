@@ -73,7 +73,7 @@ function createAdminRouter(options) {
       const cfg = settings && settings.getAllSync ? settings.getAllSync() : {};
       res.json({
         ok: true,
-        logLevel: (process.env.LOG_LEVEL || 'info').toLowerCase(),
+        logLevel: (cfg.logLevel || 'info'),
         canDownloadLog,
         jwtExpiresDays: Number(cfg.jwtExpiresDays || 7) | 0,
         wsHeartbeat: true,
@@ -82,7 +82,7 @@ function createAdminRouter(options) {
           enabled: !!cfg.autoCleanupEnabled,
           intervalMinutes: Number(cfg.cleanupIntervalMinutes || 720) | 0,
           messageTtlDays: Number(cfg.messageTtlDays || 0) | 0,
-          deviceInactiveDays: Number(process.env.DEVICE_INACTIVE_DAYS || '0') | 0,
+          deviceInactiveDays: Number(cfg.deviceInactiveDays || 0) | 0,
           counters: {
             files: stats.cleaned_files_total || 0,
             messages: stats.cleaned_messages_total || 0,
@@ -120,11 +120,16 @@ function createAdminRouter(options) {
       const body = req.body || {};
       const patch = {
         autoCleanupEnabled: !!body.autoCleanupEnabled,
+        cleanupIntervalAuto: !!body.cleanupIntervalAuto,
         cleanupIntervalMinutes: parseInt(body.cleanupIntervalMinutes, 10),
         messageTtlDays: parseInt(body.messageTtlDays, 10),
+        deviceInactiveDays: parseInt(body.deviceInactiveDays, 10),
         jwtExpiresDays: parseInt(body.jwtExpiresDays, 10),
         tempLoginTtlMinutes: parseInt(body.tempLoginTtlMinutes, 10),
         headerAutoHide: !!body.headerAutoHide,
+        fileSizeLimitMB: parseInt(body.fileSizeLimitMB, 10),
+        maxFiles: parseInt(body.maxFiles, 10),
+        logLevel: String(body.logLevel || 'info').toLowerCase(),
       };
       const saved = await settings.update(patch);
       logger.info('admin.settings.update', { patch });

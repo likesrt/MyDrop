@@ -9,19 +9,19 @@ function createConfigRouter(options) {
     try {
       let qrEnabled = false;
       try { const user = await db.getFirstUser(); qrEnabled = !!(user && user.qr_login_enabled); } catch (_) {}
-      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { headerAutoHide: !!features.autoHideHeader };
+      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { headerAutoHide: !!features.autoHideHeader, maxFiles: limits.maxFiles, fileSizeLimitMB: limits.fileSizeLimitMB };
       res.json({
-        maxFiles: limits.maxFiles,
-        fileSizeLimitMB: limits.fileSizeLimitMB,
+        maxFiles: Number(cfg.maxFiles || limits.maxFiles) | 0,
+        fileSizeLimitMB: Number(cfg.fileSizeLimitMB || limits.fileSizeLimitMB) | 0,
         headerAutoHide: !!cfg.headerAutoHide,
         assetVersion: features.assetVersion || null,
         qrLoginEnabled: !!qrEnabled,
       });
     } catch (_) {
-      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { headerAutoHide: !!features.autoHideHeader };
+      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { headerAutoHide: !!features.autoHideHeader, maxFiles: limits.maxFiles, fileSizeLimitMB: limits.fileSizeLimitMB };
       res.json({
-        maxFiles: limits.maxFiles,
-        fileSizeLimitMB: limits.fileSizeLimitMB,
+        maxFiles: Number(cfg.maxFiles || limits.maxFiles) | 0,
+        fileSizeLimitMB: Number(cfg.fileSizeLimitMB || limits.fileSizeLimitMB) | 0,
         headerAutoHide: !!cfg.headerAutoHide,
         assetVersion: features.assetVersion || null,
         qrLoginEnabled: false,

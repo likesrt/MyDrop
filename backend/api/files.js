@@ -5,7 +5,7 @@ const multer = require('multer');
 const { logger } = require('../services/logger');
 
 function createFilesRouter(options) {
-  const { db, uploadDir, limits, broadcast, requireAuth } = options;
+  const { db, uploadDir, limits, broadcast, requireAuth, settings } = options;
   const router = express.Router();
 
   // File handling utilities
@@ -54,17 +54,35 @@ function createFilesRouter(options) {
       cb(null, unique);
     },
   });
-  const upload = multer({ storage, limits: { fileSize: limits.fileSizeLimitMB * 1024 * 1024 } });
+  function makeUpload() {
+    const cfg = settings && settings.getAllSync ? settings.getAllSync() : {};
+    const sizeMB = Number(cfg.fileSizeLimitMB || (limits && limits.fileSizeLimitMB) || 5) | 0;
+    return multer({ storage, limits: { fileSize: Math.max(1, sizeMB) * 1024 * 1024 } });
+  }
 
   // Send message with files
-  router.post('/message', requireAuth, upload.array('files'), async (req, res) => {
+  router.post('/message', requireAuth, async (req, res) => {
     try {
+      // Build a per-request upload middleware using current settings
+      const cfgForSize = settings && settings.getAllSync ? settings.getAllSync() : {};
+      const sizeMB = Number(cfgForSize.fileSizeLimitMB || (limits && limits.fileSizeLimitMB) || 5) | 0;
+      const uploader = makeUpload().array('files');
+      try {
+        await new Promise((resolve, reject) => uploader(req, res, (err) => err ? reject(err) : resolve()));
+      } catch (e) {
+        if (e && e.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: `文件大小超过上限 ${sizeMB}MB` });
+        }
+        throw e;
+      }
       const senderDeviceId = req.device_id;
       const text = (req.body.text || '').toString();
 
       const currentFileCount = await db.countFiles();
       const incoming = (req.files || []).length;
-      if (incoming > 0 && currentFileCount + incoming > limits.maxFiles) {
+      const cfg = settings && settings.getAllSync ? settings.getAllSync() : {};
+      const maxFiles = Number(cfg.maxFiles || (limits && limits.maxFiles) || 10) | 0;
+      if (incoming > 0 && currentFileCount + incoming > maxFiles) {
         for (const f of req.files || []) {
           try {
             const dest = f.destination || uploadDir;
@@ -72,8 +90,8 @@ function createFilesRouter(options) {
             fs.unlinkSync(fullPath);
           } catch (_) {}
         }
-        logger.warn('message.file_limit_reached', { incoming, current: currentFileCount, max: limits.maxFiles });
-        return res.status(400).json({ error: `File limit reached. Max ${limits.maxFiles} files.` });
+        logger.warn('message.file_limit_reached', { incoming, current: currentFileCount, max: maxFiles });
+        return res.status(400).json({ error: `File limit reached. Max ${maxFiles} files.` });
       }
 
       const msg = await db.createMessage({ senderDeviceId, text });

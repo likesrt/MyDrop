@@ -373,28 +373,46 @@
       const cfg = data && data.settings ? data.settings : {};
       const form = qs('#systemForm'); if (!form) return;
       form.autoCleanupEnabled.checked = !!cfg.autoCleanupEnabled;
+      form.cleanupIntervalAuto.checked = !!cfg.cleanupIntervalAuto;
+      form.cleanupIntervalMinutes.disabled = !!cfg.cleanupIntervalAuto;
       form.cleanupIntervalMinutes.value = (cfg.cleanupIntervalMinutes != null ? cfg.cleanupIntervalMinutes : '');
       form.messageTtlDays.value = (cfg.messageTtlDays != null ? cfg.messageTtlDays : '');
+      form.deviceInactiveDays.value = (cfg.deviceInactiveDays != null ? cfg.deviceInactiveDays : '');
       form.jwtExpiresDays.value = (cfg.jwtExpiresDays != null ? cfg.jwtExpiresDays : '');
       form.tempLoginTtlMinutes.value = (cfg.tempLoginTtlMinutes != null ? cfg.tempLoginTtlMinutes : '');
       form.headerAutoHide.checked = !!cfg.headerAutoHide;
+      form.fileSizeLimitMB.value = (cfg.fileSizeLimitMB != null ? cfg.fileSizeLimitMB : '');
+      form.maxFiles.value = (cfg.maxFiles != null ? cfg.maxFiles : '');
+      if (form.logLevel) form.logLevel.value = (cfg.logLevel || 'warn');
       if (!form._bound) {
         form._bound = true;
+        // Toggle auto interval disables minutes input
+        form.cleanupIntervalAuto.addEventListener('change', () => {
+          form.cleanupIntervalMinutes.disabled = form.cleanupIntervalAuto.checked;
+        });
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
           const fd = new FormData(form);
           const payload = {
             autoCleanupEnabled: form.autoCleanupEnabled.checked,
+            cleanupIntervalAuto: form.cleanupIntervalAuto.checked,
             cleanupIntervalMinutes: Number(fd.get('cleanupIntervalMinutes') || '0') | 0,
             messageTtlDays: Number(fd.get('messageTtlDays') || '0') | 0,
+            deviceInactiveDays: Number(fd.get('deviceInactiveDays') || '0') | 0,
             jwtExpiresDays: Number(fd.get('jwtExpiresDays') || '0') | 0,
             tempLoginTtlMinutes: Number(fd.get('tempLoginTtlMinutes') || '0') | 0,
             headerAutoHide: form.headerAutoHide.checked,
+            fileSizeLimitMB: Number(fd.get('fileSizeLimitMB') || '0') | 0,
+            maxFiles: Number(fd.get('maxFiles') || '0') | 0,
+            logLevel: (fd.get('logLevel') || 'warn').toString()
           };
           // Validate
           if (payload.cleanupIntervalMinutes < 1) return toast('清理间隔需 >= 1 分钟', 'warn');
           if (payload.messageTtlDays < 0) return toast('消息保留天数不能为负数', 'warn');
+          if (payload.deviceInactiveDays < 0) return toast('未活跃设备清理天数不能为负数', 'warn');
           if (payload.tempLoginTtlMinutes < 1) return toast('临时登录有效期需 >= 1 分钟', 'warn');
+          if (payload.fileSizeLimitMB < 1) return toast('单个文件上限需 >= 1 MB', 'warn');
+          if (payload.maxFiles < 1) return toast('全局文件数量上限需 >= 1', 'warn');
           try {
             await api('/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             toast('已保存', 'success');

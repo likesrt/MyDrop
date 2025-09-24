@@ -23,14 +23,13 @@ const HOST = process.env.HOST || '0.0.0.0';
 const LOG_FILE = process.env.LOG_FILE || '';
 const { verifyJWT } = require('./backend/services/auth');
 const TOKEN_COOKIE = 'token';
-const MAX_FILES = process.env.MAX_FILES ? parseInt(process.env.MAX_FILES, 10) : 10; // total files cap
-const FILE_SIZE_LIMIT_MB = process.env.FILE_SIZE_LIMIT_MB ? parseInt(process.env.FILE_SIZE_LIMIT_MB, 10) : 5;
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 // Runtime settings backed by DB (migrated from env)
 const settings = require('./backend/services/settings');
 // DEVICE_INACTIVE_DAYS remains env-controlled for now
-const DEVICE_INACTIVE_DAYS = process.env.DEVICE_INACTIVE_DAYS ? Math.max(0, parseInt(process.env.DEVICE_INACTIVE_DAYS, 10)) : 0; // 0 = disabled
+// DEVICE_INACTIVE_DAYS moved to settings; env fallback is ignored once settings loaded
+const DEVICE_INACTIVE_DAYS_FALLBACK = process.env.DEVICE_INACTIVE_DAYS ? Math.max(0, parseInt(process.env.DEVICE_INACTIVE_DAYS, 10)) : 0;
 // PWA static asset version for SW cache-busting via query param
 let PKG_VERSION = '0.0.0';
 try { PKG_VERSION = require('./package.json').version || '0.0.0'; } catch (_) {}
@@ -73,7 +72,17 @@ async function boot() {
     });
     // Setup cleanup based on settings and watch for changes
     scheduleCleanup();
-    try { settings.onChange(() => rescheduleCleanup()); } catch (_) {}
+    try {
+      settings.onChange((cfg) => {
+        // Update logger level dynamically
+        try {
+          const lv = String((cfg && cfg.logLevel) || 'info').toLowerCase();
+          const map = { debug: 10, info: 20, warn: 30, error: 40 };
+          if (logger && map[lv]) logger.level = map[lv];
+        } catch (_) {}
+        rescheduleCleanup();
+      });
+    } catch (_) {}
   } catch (e) {
     logger.error('db.init.failed', { err: e });
     // Always print to console for visibility
@@ -183,7 +192,7 @@ const apiRouter = createApiRouter({
   tokenCookieName: TOKEN_COOKIE,
   db,
   uploadDir: UPLOAD_DIR,
-  limits: { maxFiles: MAX_FILES, fileSizeLimitMB: FILE_SIZE_LIMIT_MB },
+  limits: { maxFiles: settings.getAllSync().maxFiles, fileSizeLimitMB: settings.getAllSync().fileSizeLimitMB },
   broadcast: (message) => broadcastMessage(message),
   jwtSecret: JWT_SECRET,
   // Use settings service for dynamic values in routers
@@ -294,6 +303,7 @@ function scheduleCleanup() {
           if (removedMessages > 0) await db.incrementStat('cleaned_messages_total', removedMessages);
         } catch (_) {}
       }
+      const DEVICE_INACTIVE_DAYS = Math.max(0, (s.deviceInactiveDays != null ? s.deviceInactiveDays : DEVICE_INACTIVE_DAYS_FALLBACK) | 0);
       if (DEVICE_INACTIVE_DAYS > 0) {
         const beforeTs = Date.now() - DEVICE_INACTIVE_DAYS * 24 * 60 * 60 * 1000;
         try { removedDevices = await db.deleteInactiveDevices(beforeTs); } catch (_) { removedDevices = 0; }
@@ -308,7 +318,7 @@ function scheduleCleanup() {
   try { if (__cleanupIntervalHandle) { clearInterval(__cleanupIntervalHandle); __cleanupIntervalHandle = null; } } catch (_) {}
   const s = settings.getAllSync();
   if (!s.autoCleanupEnabled) return; // disabled
-  const CLEANUP_INTERVAL_MINUTES = Math.max(1, s.cleanupIntervalMinutes | 0);
+  const CLEANUP_INTERVAL_MINUTES = Math.max(1, (s.cleanupIntervalAuto ? 720 : (s.cleanupIntervalMinutes | 0)));
   // run once on boot (delayed slightly) and then at interval
   setTimeout(runOnce, 10 * 1000).unref?.();
   __cleanupIntervalHandle = setInterval(runOnce, CLEANUP_INTERVAL_MINUTES * 60 * 1000);
