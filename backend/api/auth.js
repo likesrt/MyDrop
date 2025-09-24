@@ -200,6 +200,9 @@ function createAuthRouter(options) {
   // Update user credentials
   router.post('/admin/user', requireAuth, async (req, res) => {
     try {
+      // demo分支：禁用用户名密码修改功能
+      return res.status(403).json({ error: '演示服务器已禁用用户名密码修改功能' });
+
       const { oldPassword, username, password } = req.body || {};
       const user = await db.getUserById(req.user.id);
       if (!user) return res.status(404).json({ error: 'User not found' });

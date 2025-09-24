@@ -48,6 +48,8 @@ async function boot() {
       logger.info('server.listen', { host: HOST, port: PORT });
     });
     if (AUTO_CLEANUP_ENABLED) scheduleCleanup();
+    // demo分支：启动定时清理
+    scheduleDemoCleanup();
   } catch (e) {
     logger.error('db.init.failed', { err: e });
     process.exit(1);
@@ -268,4 +270,47 @@ function scheduleCleanup() {
   // run once on boot (delayed slightly) and then at interval
   setTimeout(runOnce, 10 * 1000).unref?.();
   setInterval(runOnce, CLEANUP_INTERVAL_MINUTES * 60 * 1000).unref?.();
+}
+
+// demo分支：五分钟定时清空数据库功能
+function scheduleDemoCleanup() {
+  const runDemoCleanup = async () => {
+    try {
+      logger.info('demo.cleanup.start', { message: 'Demo server clearing database' });
+
+      // 清空所有文件
+      try {
+        const files = await db.listAllFiles();
+        for (const f of files) {
+          const p = path.join(UPLOAD_DIR, f.stored_name);
+          try { await fs.promises.unlink(p); } catch (_) {}
+        }
+        logger.info('demo.cleanup.files', { count: files.length });
+      } catch (_) {}
+
+      // 清空所有消息
+      try {
+        await db.clearAllMessages();
+        logger.info('demo.cleanup.messages', { message: 'All messages cleared' });
+      } catch (_) {}
+
+      // 重置管理员用户（但保持已登录状态）
+      try {
+        const { hashPassword } = require('./backend/services/auth');
+        await db.updateUserAuth(1, {
+          username: 'admin',
+          passwordHash: hashPassword('admin'),
+          isDefaultPassword: true
+        });
+        logger.info('demo.cleanup.user', { message: 'Admin user reset' });
+      } catch (_) {}
+
+      logger.info('demo.cleanup.complete', { message: 'Demo cleanup completed' });
+    } catch (e) {
+      logger.error('demo.cleanup.error', { err: e });
+    }
+  };
+
+  // 5分钟定时清理
+  setInterval(runDemoCleanup, 5 * 60 * 1000).unref?.();
 }

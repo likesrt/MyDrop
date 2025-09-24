@@ -27,7 +27,17 @@
   </head>
   <body class="bg-slate-100 min-h-[100dvh]">
     <div class="bg-decor" aria-hidden="true"></div>
-    <div id="app" class="relative min-h-[100dvh] flex flex-col z-0"></div>
+    <!-- demo分支：演示服务器提示 -->
+    <div id="demo-notice" class="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 text-center text-sm font-medium shadow-lg">
+      <div class="max-w-6xl mx-auto flex items-center justify-between">
+        <div class="flex-1 text-center">
+          🚀 演示服务器 - 数据每5分钟自动清空 | 🔐 默认用户名：admin，密码：admin | 📱 扫码登录已默认开启 |
+          <a href="https://github.com/likesrt/MyDrop" target="_blank" class="underline hover:no-underline ml-2">🌟 查看源码</a>
+        </div>
+        <button onclick="document.getElementById('demo-notice').style.display='none'" class="ml-2 text-white hover:text-amber-200 transition-colors">✕</button>
+      </div>
+    </div>
+    <div id="app" class="relative min-h-[100dvh] flex flex-col z-0" style="padding-top: 3rem;"></div>
     <!-- 按依赖顺序加载模块 -->
     <script src="/js/utils.js"></script>
     <script src="/js/ui.js"></script>

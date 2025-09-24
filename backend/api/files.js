@@ -127,12 +127,18 @@ function createFilesRouter(options) {
       if (!fileId) return res.status(400).json({ error: '缺少文件ID' });
 
       const file = await db.getFile(fileId);
-      if (file) {
-        const p = path.join(uploadDir, file.stored_name);
-        try { await fs.promises.unlink(p); } catch (_) {}
-        await db.deleteFile(fileId);
-        try { await db.incrementStat('cleaned_files_total', 1); } catch (_) {}
+      if (!file) return res.status(404).json({ error: '文件不存在' });
+
+      // demo分支：检查文件所属消息是否由当前设备发送
+      const message = await db.getMessage(file.message_id);
+      if (message && message.sender_device_id !== req.device_id) {
+        return res.status(403).json({ error: '演示服务器只允许删除当前设备发送的文件' });
       }
+
+      const p = path.join(uploadDir, file.stored_name);
+      try { await fs.promises.unlink(p); } catch (_) {}
+      await db.deleteFile(fileId);
+      try { await db.incrementStat('cleaned_files_total', 1); } catch (_) {}
 
       logger.info('admin.file.delete', { file_id: fileId });
       res.json({ ok: true });

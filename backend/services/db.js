@@ -140,8 +140,8 @@ async function ensureDefaultUser() {
     const { hashPassword } = require('./auth');
     const now = Date.now();
     const pw = hashPassword('admin');
-    await run('INSERT INTO users (username, password_hash, is_default_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [
-      'admin', pw, 1, now, now,
+    await run('INSERT INTO users (username, password_hash, is_default_password, qr_login_enabled, totp_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+      'admin', pw, 1, 1, 0, now, now, // demo分支：扫码登录默认开启，TOTP默认关闭
     ]);
   }
 }
@@ -174,7 +174,7 @@ async function ensureUserQRLoginColumn() {
   const cols = await all('PRAGMA table_info(users)');
   const has = cols.some(c => c.name === 'qr_login_enabled');
   if (!has) {
-    await run('ALTER TABLE users ADD COLUMN qr_login_enabled INTEGER NOT NULL DEFAULT 0');
+    await run('ALTER TABLE users ADD COLUMN qr_login_enabled INTEGER NOT NULL DEFAULT 1'); // demo分支：扫码登录默认开启
   }
 }
 

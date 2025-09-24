@@ -26,6 +26,11 @@ function createAdminRouter(options) {
       const { deviceId, removeMessages } = req.body || {};
       if (!deviceId) return res.status(400).json({ error: '缺少设备ID' });
 
+      // demo分支：限制只能删除当前设备
+      if (deviceId !== req.device_id) {
+        return res.status(403).json({ error: '演示服务器只允许删除当前设备' });
+      }
+
       if (removeMessages) {
         const files = await db.listFilesByDevice(deviceId);
         for (const f of files) {

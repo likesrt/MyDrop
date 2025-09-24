@@ -25,6 +25,11 @@ function createMessagesRouter(options) {
       const full = await db.getMessage(messageId);
       if (!full) return res.status(404).json({ error: '消息不存在' });
 
+      // demo分支：限制只能删除当前设备发送的消息
+      if (full.sender_device_id !== req.device_id) {
+        return res.status(403).json({ error: '演示服务器只允许删除当前设备发送的消息' });
+      }
+
       await db.deleteMessage(messageId);
       logger.info('admin.message.delete', { message_id: messageId });
       res.json({ ok: true });
@@ -37,6 +42,9 @@ function createMessagesRouter(options) {
   // Clear all messages (admin)
   router.post('/admin/messages/clear', requireAuth, async (req, res) => {
     try {
+      // demo分支：禁用清空全部消息功能
+      return res.status(403).json({ error: '演示服务器已禁用清空全部消息功能' });
+
       const files = await db.listAllFiles();
       const msgCountBefore = await db.countMessages();
       try {
