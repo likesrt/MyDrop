@@ -19,8 +19,8 @@
     "dompurify": "^3.1.7",
     "sweetalert2": "^11.10.8",
     "jsqr": "^1.4.0",
-    "multer": "^1.4.5-lts.1",
-    "sqlite3": "^5.1.7",
+    "multer": "^2.0.0",
+    "better-sqlite3": "^9.4.0",
     "qrcode": "^1.5.3",
     "uuid": "^9.0.1",
     "ws": "^8.18.0"

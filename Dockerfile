@@ -3,6 +3,7 @@
 # - runner 阶段：仅包含生产依赖与运行所需文件，镜像更小更安全
 
 FROM node:20-alpine AS builder
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 WORKDIR /app
 
 # 为原生模块准备编译工具（例如 sqlite3 在 Alpine 上需要）
