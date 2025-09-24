@@ -3,6 +3,7 @@ const crypto = require('crypto');
 let QRCode;
 try { QRCode = require('qrcode'); } catch (_) { QRCode = null; }
 const { logger } = require('../services/logger');
+const { getClientIp } = require('../utils/ip');
 const { signJWT, verifyJWT, verifyPassword, hashPassword, verifyTOTP, generateTOTPSecret, b64urlToBuffer } = require('../services/auth');
 
 function createAuthRouter(options) {
@@ -106,7 +107,7 @@ function createAuthRouter(options) {
         return res.json({ ok: true, mfaRequired: 'totp', mfaToken });
       }
 
-      await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '', req.ip || null);
+      await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '', getClientIp(req));
       const cfg = settings && settings.getAllSync ? settings.getAllSync() : { jwtExpiresDays: 7, tempLoginTtlMinutes: 10 };
       const days = Number.isFinite(cfg.jwtExpiresDays) ? cfg.jwtExpiresDays : 7;
       const tmpSec = Math.max(60, (parseInt(cfg.tempLoginTtlMinutes, 10) || 10) * 60);
@@ -139,7 +140,7 @@ function createAuthRouter(options) {
         return res.status(401).json({ error: '验证码不正确' });
       }
 
-      await db.upsertDevice(flow.deviceId, flow.alias || null, req.headers['user-agent'] || '', req.ip || null);
+      await db.upsertDevice(flow.deviceId, flow.alias || null, req.headers['user-agent'] || '', getClientIp(req));
       const cfg2 = settings && settings.getAllSync ? settings.getAllSync() : { jwtExpiresDays: 7, tempLoginTtlMinutes: 10 };
       const days = Number.isFinite(cfg2.jwtExpiresDays) ? cfg2.jwtExpiresDays : 7;
       const tmpSec = Math.max(60, (parseInt(cfg2.tempLoginTtlMinutes, 10) || 10) * 60);
@@ -188,7 +189,7 @@ function createAuthRouter(options) {
       const deviceId = req.device_id;
       if (alias.length > 100) return res.status(400).json({ error: '别名过长' });
 
-      await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '', req.ip || null);
+      await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '', getClientIp(req));
       const device = await db.getDevice(deviceId);
 
       logger.info('device.alias.update', { device_id: deviceId, alias: alias || '' });

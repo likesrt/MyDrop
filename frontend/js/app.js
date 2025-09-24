@@ -59,6 +59,12 @@ function attachMediaLoadScroll() {
     const app = window.MyDropUtils.qs('#app');
     if (app) app.innerHTML = await window.MyDropTemplates.getTemplate('app-skeleton');
   } catch (_) {}
+  const skeletonTs = Date.now();
+  const ensureMinDelay = async (start, minMs) => {
+    const now = Date.now();
+    const rest = Math.max(0, minMs - (now - start));
+    if (rest > 0) await new Promise(r => setTimeout(r, rest));
+  };
 
   // 并发加载基础数据
   let basicsOk = false;
@@ -82,12 +88,15 @@ function attachMediaLoadScroll() {
       const needMore = /^#message-(\d+)$/.test(hash);
       await window.MyDropAPI.loadInitialMessages(needMore ? 1000 : 100);
     } catch (_) {}
+    // 略微延迟，避免骨架与实内容“闪屏”
+    await ensureMinDelay(skeletonTs, 100 + Math.floor(Math.random() * 60));
     await render();
     if (window.MyDropState.me) {
       window.MyDropWebSocket.openWS();
     }
   } else {
     // 未登录或 API 暂不可用，先渲染登录页
+    await ensureMinDelay(skeletonTs, 100 + Math.floor(Math.random() * 60));
     await render();
   }
 
