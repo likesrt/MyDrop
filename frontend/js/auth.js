@@ -105,18 +105,18 @@ function bindLogin() {
       e.preventDefault();
       const alias = (window.MyDropUtils.qs('#loginAlias')?.value || '').toString();
 
-      // Browser support
-      if (!('PublicKeyCredential' in window)) {
-        try { window.MyDropUI.toast('当前浏览器不支持通行密钥', 'warn'); } catch (_) { alert('当前浏览器不支持通行密钥'); }
-        return;
-      }
-
-      // Security context
+      // Security context first: prefer域名/协议提示而非浏览器不支持
       const isHttps = location.protocol === 'https:';
       const isLocal = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
       const secureOK = (window.isSecureContext === true) && (isHttps || isLocal);
       if (!secureOK) {
-        try { window.MyDropUI.toast('通行密钥需要 HTTPS 或 localhost 访问', 'warn'); } catch (_) { alert('通行密钥需要 HTTPS 或 localhost 访问'); }
+        try { window.MyDropUI.toast('当前域名/协议不支持通行密钥，请使用 HTTPS 或 localhost', 'warn'); } catch (_) { alert('当前域名/协议不支持通行密钥，请使用 HTTPS 或 localhost'); }
+        return;
+      }
+
+      // Browser support
+      if (!('PublicKeyCredential' in window)) {
+        try { window.MyDropUI.toast('当前浏览器不支持通行密钥', 'warn'); } catch (_) { alert('当前浏览器不支持通行密钥'); }
         return;
       }
 
