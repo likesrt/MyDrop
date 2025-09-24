@@ -243,6 +243,11 @@ select.input { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://ww
 .section-title { font-weight: 600; color: var(--text); border-bottom: 2px solid var(--theme-400); padding-bottom: 6px; margin-bottom: 12px; }
 .settings-section { padding: 8px 0; }
 
+/* Skeleton (dark-mode friendly) */
+.skeleton-bar { background: var(--border); }
+.skeleton-pill { background: var(--border); }
+.skeleton-title { color: var(--muted); }
+
 /* 聊天容器滚动优化 */
 #messages {
   overscroll-behavior: contain;
