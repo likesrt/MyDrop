@@ -352,7 +352,7 @@
   }
 
   function switchTab(name) {
-    const sections = ['dashboard','settings','devices','messages','cache'];
+    const sections = ['dashboard','settings','devices','system','messages','cache'];
     sections.forEach(id => {
       const el = qs(`#tab-${id}`);
       if (!el) return;
@@ -364,6 +364,46 @@
     if (name === 'devices') renderDevices();
     if (name === 'messages') renderMessages();
     if (name === 'cache') bindCacheTools();
+    if (name === 'system') renderSystemSettings();
+  }
+
+  async function renderSystemSettings() {
+    try {
+      const data = await api('/admin/settings');
+      const cfg = data && data.settings ? data.settings : {};
+      const form = qs('#systemForm'); if (!form) return;
+      form.autoCleanupEnabled.checked = !!cfg.autoCleanupEnabled;
+      form.cleanupIntervalMinutes.value = (cfg.cleanupIntervalMinutes != null ? cfg.cleanupIntervalMinutes : '');
+      form.messageTtlDays.value = (cfg.messageTtlDays != null ? cfg.messageTtlDays : '');
+      form.jwtExpiresDays.value = (cfg.jwtExpiresDays != null ? cfg.jwtExpiresDays : '');
+      form.tempLoginTtlMinutes.value = (cfg.tempLoginTtlMinutes != null ? cfg.tempLoginTtlMinutes : '');
+      form.headerAutoHide.checked = !!cfg.headerAutoHide;
+      if (!form._bound) {
+        form._bound = true;
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const fd = new FormData(form);
+          const payload = {
+            autoCleanupEnabled: form.autoCleanupEnabled.checked,
+            cleanupIntervalMinutes: Number(fd.get('cleanupIntervalMinutes') || '0') | 0,
+            messageTtlDays: Number(fd.get('messageTtlDays') || '0') | 0,
+            jwtExpiresDays: Number(fd.get('jwtExpiresDays') || '0') | 0,
+            tempLoginTtlMinutes: Number(fd.get('tempLoginTtlMinutes') || '0') | 0,
+            headerAutoHide: form.headerAutoHide.checked,
+          };
+          // Validate
+          if (payload.cleanupIntervalMinutes < 1) return toast('清理间隔需 >= 1 分钟', 'warn');
+          if (payload.messageTtlDays < 0) return toast('消息保留天数不能为负数', 'warn');
+          if (payload.tempLoginTtlMinutes < 1) return toast('临时登录有效期需 >= 1 分钟', 'warn');
+          try {
+            await api('/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            toast('已保存', 'success');
+          } catch (err) { toast(formatError(err, '保存失败'), 'error'); }
+        });
+      }
+    } catch (err) {
+      toast(formatError(err, '加载设置失败'), 'error');
+    }
   }
 
   async function setupMFAAndPasskeys() {

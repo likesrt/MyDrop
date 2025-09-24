@@ -6,7 +6,7 @@ const { logger } = require('../services/logger');
 const { signJWT, verifyJWT, verifyPassword, hashPassword, verifyTOTP, generateTOTPSecret, b64urlToBuffer } = require('../services/auth');
 
 function createAuthRouter(options) {
-  const { tokenCookieName, db, jwtSecret, jwtExpiresDays, tempLoginMinutes = 10, kickUserSessions } = options;
+  const { tokenCookieName, db, jwtSecret, settings, kickUserSessions } = options;
   const router = express.Router();
 
   // In-memory ephemeral stores
@@ -107,8 +107,9 @@ function createAuthRouter(options) {
       }
 
       await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '', req.ip || null);
-      const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
-      const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
+      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { jwtExpiresDays: 7, tempLoginTtlMinutes: 10 };
+      const days = Number.isFinite(cfg.jwtExpiresDays) ? cfg.jwtExpiresDays : 7;
+      const tmpSec = Math.max(60, (parseInt(cfg.tempLoginTtlMinutes, 10) || 10) * 60);
       const expiresSec = remember ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
       const token = signJWT({ sub: user.id, username: user.username, device_id: deviceId, tv: user.token_version || 0 }, jwtSecret, expiresSec);
       const cookieMaxAge = (remember && days > 0) ? (expiresSec * 1000) : null; // session cookie for temporary login
@@ -139,8 +140,9 @@ function createAuthRouter(options) {
       }
 
       await db.upsertDevice(flow.deviceId, flow.alias || null, req.headers['user-agent'] || '', req.ip || null);
-      const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
-      const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
+      const cfg2 = settings && settings.getAllSync ? settings.getAllSync() : { jwtExpiresDays: 7, tempLoginTtlMinutes: 10 };
+      const days = Number.isFinite(cfg2.jwtExpiresDays) ? cfg2.jwtExpiresDays : 7;
+      const tmpSec = Math.max(60, (parseInt(cfg2.tempLoginTtlMinutes, 10) || 10) * 60);
       const expiresSec = flow.remember ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
       const token = signJWT({ sub: user.id, username: user.username, device_id: flow.deviceId, tv: user.token_version || 0 }, jwtSecret, expiresSec);
       const cookieMaxAge = (flow.remember && days > 0) ? (expiresSec * 1000) : null;

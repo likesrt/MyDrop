@@ -36,6 +36,7 @@
         <button id="tabDashboardBtn" class="btn pressable" data-tab="dashboard">仪表盘</button>
         <button id="tabSettingsBtn" class="btn pressable" data-tab="settings">账号设置</button>
         <button id="tabDevicesBtn" class="btn pressable" data-tab="devices">设备管理</button>
+        <button id="tabSystemBtn" class="btn pressable" data-tab="system">系统设置</button>
         <button id="tabMessagesBtn" class="btn pressable" data-tab="messages">消息管理</button>
         <button id="tabCacheBtn" class="btn pressable" data-tab="cache">缓存管理</button>
       </div>
@@ -115,6 +116,44 @@
           </div>
           <div id="passkeyList" class="divide-y"></div>
         </div>
+      </section>
+
+      <section id="tab-system" class="bg-white rounded shadow p-4 hidden">
+        <h2 class="font-medium mb-3">系统设置</h2>
+        <form id="systemForm" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm text-slate-600 mb-1">自动清理</label>
+              <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="autoCleanupEnabled" class="mr-1"> 启用周期性清理</label>
+              <p class="text-xs text-slate-500 mt-1">清理过期消息与文件；可与“消息保留天数”配合使用</p>
+            </div>
+            <div>
+              <label class="block text-sm text-slate-600 mb-1">清理间隔（分钟）</label>
+              <input type="number" name="cleanupIntervalMinutes" min="1" class="input" placeholder="720" />
+            </div>
+            <div>
+              <label class="block text-sm text-slate-600 mb-1">消息保留天数</label>
+              <input type="number" name="messageTtlDays" min="0" class="input" placeholder="90" />
+              <p class="text-xs text-slate-500 mt-1">0 表示不自动删除；>0 时删除早于该天数的消息与文件</p>
+            </div>
+            <div>
+              <label class="block text-sm text-slate-600 mb-1">JWT 过期天数（记住我）</label>
+              <input type="number" name="jwtExpiresDays" min="0" class="input" placeholder="7" />
+            </div>
+            <div>
+              <label class="block text-sm text-slate-600 mb-1">临时登录有效期（分钟）</label>
+              <input type="number" name="tempLoginTtlMinutes" min="1" class="input" placeholder="10" />
+            </div>
+            <div>
+              <label class="block text-sm text-slate-600 mb-1">移动端顶部栏自动隐藏</label>
+              <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="headerAutoHide" class="mr-1"> 启用</label>
+              <p class="text-xs text-slate-500 mt-1">顶部 50px 为唤起区域；10 秒无操作自动隐藏</p>
+            </div>
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary pressable">保存设置</button>
+          </div>
+        </form>
       </section>
 
       <section id="tab-devices" class="bg-white rounded shadow p-4 hidden">
