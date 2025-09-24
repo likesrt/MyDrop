@@ -349,7 +349,15 @@
         }
         // 提醒 SW 立即激活（如存在新版本）
         try { navigator.serviceWorker?.controller?.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {}
-        toast(`已清除 ${removed} 个缓存条目`, 'success');
+        await toast(`已清除 ${removed} 个缓存条目，正在刷新以加载最新资源…`, 'success');
+        // 强制刷新并携带随机查询参数，确保从网络拉取最新静态资源
+        try {
+          const url = new URL(location.href);
+          url.searchParams.set('r', Date.now());
+          location.replace(url.toString());
+        } catch (_) {
+          location.reload();
+        }
       } catch (e) {
         toast(formatError(e, '清理失败'), 'error');
       }
