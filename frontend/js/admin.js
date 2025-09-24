@@ -683,6 +683,7 @@
               <div class="font-medium text-slate-800">${(d.alias || short(d.device_id) || '未命名设备')}${badge}</div>
               <div class="text-xs text-slate-500">ID：${d.device_id}</div>
               <div class="text-xs text-slate-500">最近活跃：${last}</div>
+              <div class="text-xs text-slate-500">IP：${(d.last_ip || d.created_ip || '未知')}</div>
               <div class="text-xs text-slate-500 truncate">UA：${(d.user_agent || '')}</div>
             </div>
             <div class="shrink-0 flex items-center gap-2">

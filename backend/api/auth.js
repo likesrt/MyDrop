@@ -106,7 +106,7 @@ function createAuthRouter(options) {
         return res.json({ ok: true, mfaRequired: 'totp', mfaToken });
       }
 
-      await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '');
+      await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '', req.ip || null);
       const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
       const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
       const expiresSec = remember ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
@@ -138,7 +138,7 @@ function createAuthRouter(options) {
         return res.status(401).json({ error: '验证码不正确' });
       }
 
-      await db.upsertDevice(flow.deviceId, flow.alias || null, req.headers['user-agent'] || '');
+      await db.upsertDevice(flow.deviceId, flow.alias || null, req.headers['user-agent'] || '', req.ip || null);
       const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
       const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
       const expiresSec = flow.remember ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
@@ -186,7 +186,7 @@ function createAuthRouter(options) {
       const deviceId = req.device_id;
       if (alias.length > 100) return res.status(400).json({ error: '别名过长' });
 
-      await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '');
+      await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '', req.ip || null);
       const device = await db.getDevice(deviceId);
 
       logger.info('device.alias.update', { device_id: deviceId, alias: alias || '' });
