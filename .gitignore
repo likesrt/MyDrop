@@ -29,6 +29,9 @@ yarn-error.log*
 yarn-debug.log*
 package-lock.json
 
+# Local deployment compose file (keep only the template in git)
+docker-compose.yml
+
 # Build/coverage/temp
 coverage/
 dist/

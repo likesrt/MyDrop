@@ -6,9 +6,9 @@ services:
     env_file:
       - ./.env
     ports:
-      # 允许直接ip+端口访问
+      # 对外暴露端口（默认对任意地址开放）
       - "${PORT:-3000}:${PORT:-3000}"
-      # 禁止端口访问需要注释下面这行，并注释上面的
+      # 不对外直接暴露端口：注释上一行，取消注释下一行
       # - "127.0.0.1:${PORT:-3000}:${PORT:-3000}"
     volumes:
       # 挂载上传文件，数据库和日志到宿主机，便于持久化
@@ -16,3 +16,4 @@ services:
       - ./logs:/app/logs
       - ./database:/app/database
     restart: unless-stopped
+

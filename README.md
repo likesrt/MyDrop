@@ -39,11 +39,12 @@ yarn start
 git clone https://github.com/likesrt/mydrop.git
 cd mydrop
 
-# 2)（可选）准备环境变量配置
+# 2) 准备环境变量与 Compose 配置
 cp .env.example .env
+cp docker-compose.example.yml docker-compose.yml
 # 强烈建议修改 .env 中的 JWT_SECRET
 
-# 3) 首次构建并后台运行
+# 3) 首次构建并后台运行（后续更新仅需 pull + up -d）
 docker compose up -d --build
 
 # 4) 常用操作
@@ -55,9 +56,9 @@ docker compose down       # 停止容器
   - `./database:/app/database`（SQLite 主库与 WAL/SHM）
   - `./uploads:/app/uploads`
   - `./logs:/app/logs`
-- 端口映射（更简单）：仅一个变量 `PORT`。
+- 端口映射：仅一个变量 `PORT`。
   - 在 `.env` 修改 `PORT=8080` → 发布为 `8080:8080`（容器也监听 8080）。
-  - 仅本机访问：把 compose 端口行改为 `127.0.0.1:${PORT:-3000}:${PORT:-3000}`。
+  - 仅本机访问：在 `docker-compose.yml` 注释处启用 `127.0.0.1:${PORT:-3000}:${PORT:-3000}`。
 
 ## 目录结构
 
@@ -74,7 +75,7 @@ uploads/            # 上传文件
 logs/               # 日志文件
 app.js              # 启动 Express + WebSocket 与静态资源
 Dockerfile          
-docker-compose.yml  
+docker-compose.example.yml  
 ```
 
 ## 常用脚本
@@ -98,9 +99,9 @@ docker-compose.yml
 
 ## 安全与部署建议
 
-- 强设置 `JWT_SECRET`，并妥善保管；避免将 `.env` 提交到仓库。
+- 强设置 `JWT_SECRET`，并妥善保管；
 - 若暴露公网，建议置于反向代理（Nginx/Caddy）之后，启用 TLS 与限流。
-- 定期备份 `database/` 目录；如使用 Compose，直接备份宿主机的 `./database` 即可。
+- 定期备份 `database/` `uploads/` 目录；如使用 Compose，直接备份宿主机的 `./database`  `uploads/` 即可。
 
 ## 许可
 
