@@ -207,18 +207,27 @@ function bindChat() {
   ['input','change'].forEach(evt => textInput.addEventListener(evt, syncHeight));
   setTimeout(syncHeight, 0);
 
-  // 防止点击发送按钮导致输入框失焦（移动端会收起键盘）
+  // 发送按钮的焦点处理：
+  // - 若输入框当前已获得焦点，则按下发送按钮不让其丢失（保持键盘不收起）；
+  // - 若输入框未聚焦，则不要主动聚焦输入框（避免仅发送附件时唤起键盘）。
   if (sendBtn) {
-    // 阻止鼠标按下将焦点切到按钮（不影响后续 click 与 submit）
-    sendBtn.addEventListener('mousedown', (ev) => { try { ev.preventDefault(); } catch(_) {} });
-    // 触屏场景尽量保持焦点在文本框
-    sendBtn.addEventListener('touchstart', () => { try { textInput.focus({ preventScroll: true }); } catch(_) {} }, { passive: true });
+    sendBtn.addEventListener('mousedown', (ev) => {
+      try { if (document.activeElement === textInput) ev.preventDefault(); } catch(_) {}
+    });
+    sendBtn.addEventListener('touchstart', (ev) => {
+      try {
+        if (document.activeElement === textInput) {
+          // 阻止按钮获取焦点，保持输入框与键盘
+          ev.preventDefault();
+        }
+      } catch(_) {}
+    }, { passive: false });
   }
 
   composer.addEventListener('submit', async (e) => {
     e.preventDefault();
-    // 提交瞬间立即把焦点锁回输入框，避免移动端键盘先收起再弹出
-    try { textInput.focus({ preventScroll: true }); } catch (_) {}
+    // 只在提交前输入框已聚焦且存在文本时，提交后保持聚焦；
+    const wasFocused = (document.activeElement === textInput);
     const text = textInput.value.trim();
     const files = Array.from(fileInput.files || []);
     if (!text && files.length === 0) return;
@@ -308,10 +317,12 @@ function bindChat() {
       renderSelectedFiles();
       syncHeight();
 
-      // 维持焦点与光标位置
+      // 维持焦点与光标位置：仅当原本已聚焦且是文本发送场景时才保持聚焦
       try {
-        textInput.focus({ preventScroll: true });
-        textInput.setSelectionRange(textInput.value.length, textInput.value.length);
+        if (wasFocused && text) {
+          textInput.focus({ preventScroll: true });
+          textInput.setSelectionRange(textInput.value.length, textInput.value.length);
+        }
       } catch (_) {}
     } catch (err) {
       // remove optimistic
