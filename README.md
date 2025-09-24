@@ -91,6 +91,7 @@ docker-compose.example.yml
 - `PORT`：同时用于应用内部监听与 docker-compose 端口映射（默认 3000）
 - `JWT_SECRET`：JWT 签名密钥（务必强设置）
 - `JWT_EXPIRES_DAYS`：JWT 过期天数（默认 7）
+- `TEMP_LOGIN_TTL_MINUTES`：未勾选“记住我”时的临时登录有效期（分钟，默认 10；会话 Cookie，关闭浏览器即清除）
 - `MAX_FILES`：全局文件数量上限（默认 10）
 - `FILE_SIZE_LIMIT_MB`：单文件大小上限 MB（默认 5）
 - `LOG_LEVEL`：日志级别 `error|warn|info|debug`（默认 info）

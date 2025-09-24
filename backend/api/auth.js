@@ -6,14 +6,16 @@ const { logger } = require('../services/logger');
 const { signJWT, verifyJWT, verifyPassword, hashPassword, verifyTOTP, generateTOTPSecret, b64urlToBuffer } = require('../services/auth');
 
 function createAuthRouter(options) {
-  const { tokenCookieName, db, jwtSecret, jwtExpiresDays, kickUserSessions } = options;
+  const { tokenCookieName, db, jwtSecret, jwtExpiresDays, tempLoginMinutes = 10, kickUserSessions } = options;
   const router = express.Router();
 
   // In-memory ephemeral stores
-  const pendingMFA = new Map(); // mfaToken -> { userId, username, deviceId, alias, issuedAt }
+  const pendingMFA = new Map(); // mfaToken -> { userId, username, deviceId, alias, remember, issuedAt }
   const webauthnRegs = new Map(); // flowId -> { userId, challenge, rpId, origin, issuedAt }
   const webauthnLogins = new Map(); // flowId -> { challenge, rpId, origin, issuedAt }
   const FLOW_TTL_MS = 5 * 60 * 1000;
+  const qrSessions = new Map(); // rid -> { codeHash, createdAt, expiresAt, approvedBy: userId|null, consumed: bool }
+  const QR_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
   function now() { return Date.now(); }
   function gcEphemeral() {
@@ -21,6 +23,9 @@ function createAuthRouter(options) {
     for (const [k, v] of pendingMFA.entries()) { if ((v.issuedAt || 0) < limit) pendingMFA.delete(k); }
     for (const [k, v] of webauthnRegs.entries()) { if ((v.issuedAt || 0) < limit) webauthnRegs.delete(k); }
     for (const [k, v] of webauthnLogins.entries()) { if ((v.issuedAt || 0) < limit) webauthnLogins.delete(k); }
+    // cleanup QR sessions
+    const nowTs = now();
+    for (const [k, v] of qrSessions.entries()) { if ((v.expiresAt || 0) < nowTs || v.consumed) qrSessions.delete(k); }
   }
   setInterval(gcEphemeral, 60 * 1000).unref?.();
 
@@ -78,6 +83,7 @@ function createAuthRouter(options) {
   router.post('/login', async (req, res) => {
     try {
       const { username, password, deviceId, alias } = req.body || {};
+      const remember = !!(req.body && (req.body.remember === true || req.body.remember === '1' || req.body.remember === 1 || String(req.body.remember).toLowerCase() === 'true'));
       if (!username || !password) return res.status(400).json({ error: '缺少用户名或密码' });
       if (!deviceId) return res.status(400).json({ error: '缺少设备ID' });
 
@@ -95,20 +101,20 @@ function createAuthRouter(options) {
       // If TOTP is enabled, require second factor
       if (user.totp_enabled) {
         const mfaToken = randomId(24);
-        pendingMFA.set(mfaToken, { userId: user.id, username: user.username, deviceId, alias: alias || null, issuedAt: now() });
+        pendingMFA.set(mfaToken, { userId: user.id, username: user.username, deviceId, alias: alias || null, remember: !!remember, issuedAt: now() });
         logger.info('login.password_ok_mfa_required', { device_id: deviceId });
         return res.json({ ok: true, mfaRequired: 'totp', mfaToken });
       }
 
       await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '');
       const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
-      const expiresSec = days > 0 ? days * 24 * 60 * 60 : null;
+      const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
+      const expiresSec = remember ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
       const token = signJWT({ sub: user.id, username: user.username, device_id: deviceId, tv: user.token_version || 0 }, jwtSecret, expiresSec);
-
-      const cookieMaxAge = days > 0 ? (expiresSec * 1000) : null;
+      const cookieMaxAge = (remember && days > 0) ? (expiresSec * 1000) : null; // session cookie for temporary login
       res.cookie(tokenCookieName, token, cookieOptsFor(req, cookieMaxAge));
 
-      logger.info('login.success', { device_id: deviceId, alias: alias || '', ip: req.ip });
+      logger.info('login.success', { device_id: deviceId, alias: alias || '', remember: !!remember, ip: req.ip });
       res.json({ ok: true, needsPasswordChange: !!user.is_default_password });
     } catch (err) {
       logger.error('login.error', { err });
@@ -134,9 +140,10 @@ function createAuthRouter(options) {
 
       await db.upsertDevice(flow.deviceId, flow.alias || null, req.headers['user-agent'] || '');
       const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
-      const expiresSec = days > 0 ? days * 24 * 60 * 60 : null;
+      const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
+      const expiresSec = flow.remember ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
       const token = signJWT({ sub: user.id, username: user.username, device_id: flow.deviceId, tv: user.token_version || 0 }, jwtSecret, expiresSec);
-      const cookieMaxAge = days > 0 ? (expiresSec * 1000) : null;
+      const cookieMaxAge = (flow.remember && days > 0) ? (expiresSec * 1000) : null;
       res.cookie(tokenCookieName, token, cookieOptsFor(req, cookieMaxAge));
       logger.info('login.totp.success', { device_id: flow.deviceId });
       res.json({ ok: true, needsPasswordChange: !!user.is_default_password });
@@ -163,7 +170,7 @@ function createAuthRouter(options) {
     const device = await db.getDevice(req.device_id);
     const user = await db.getUserById(req.user.id);
     const passkeyCount = await db.countWebAuthnCredentials(user.id);
-    res.json({ device, user: { username: user.username, needsPasswordChange: !!user.is_default_password, totpEnabled: !!user.totp_enabled, passkeyCount } });
+    res.json({ device, user: { username: user.username, needsPasswordChange: !!user.is_default_password, totpEnabled: !!user.totp_enabled, passkeyCount, qrLoginEnabled: !!user.qr_login_enabled } });
   });
 
   // List devices
@@ -292,6 +299,139 @@ function createAuthRouter(options) {
     }
   });
 
+  // ===== QR Code Login =====
+  function hashCode(code) {
+    return crypto.createHash('sha256').update(String(code)).digest('hex');
+  }
+
+  // Create a new QR login session
+  router.post('/login/qr/start', async (req, res) => {
+    try {
+      const rid = randomId(16);
+      const code = randomId(16);
+      const createdAt = now();
+      const expiresAt = createdAt + QR_TTL_MS;
+      qrSessions.set(rid, { codeHash: hashCode(code), createdAt, expiresAt, approvedBy: null, consumed: false });
+      const origin = getExpectedOrigin(req);
+      const scanUrl = `${origin}/login/qr/scan?rid=${encodeURIComponent(rid)}&code=${encodeURIComponent(code)}`;
+      res.json({ ok: true, rid, code, expiresAt, scanUrl });
+    } catch (err) {
+      logger.error('qr.start.error', { err });
+      res.status(500).json({ error: '无法创建会话' });
+    }
+  });
+
+  // QR SVG image encoding parameters (not a URL)
+  router.get('/login/qr/svg', async (req, res) => {
+    try {
+      if (!QRCode) return res.status(500).send('QR unavailable');
+      const rid = (req.query.rid || '').toString();
+      const code = (req.query.code || '').toString();
+      const sess = qrSessions.get(rid);
+      if (!rid || !code || !sess) return res.status(404).send('Not found');
+      if (sess.consumed || (sess.expiresAt && sess.expiresAt < now())) return res.status(410).send('Expired');
+      if (sess.codeHash !== hashCode(code)) return res.status(400).send('Bad request');
+      const payload = JSON.stringify({ t: 'mydrop.qr', v: 1, rid, code });
+      const svg = await QRCode.toString(payload, { type: 'svg', margin: 0, width: 256 });
+      res.type('image/svg+xml').send(svg);
+    } catch (err) {
+      logger.error('qr.svg.error', { err });
+      res.status(500).send('QR failed');
+    }
+  });
+
+  // Scanning approve endpoint (must be from an authenticated, already-logged-in device)
+  router.post('/login/qr/approve', requireAuth, async (req, res) => {
+    try {
+      const { rid, code, remember } = req.body || {};
+      const sess = qrSessions.get(String(rid || ''));
+      if (!sess) return res.status(404).json({ error: '会话不存在' });
+      if (sess.consumed) return res.status(400).json({ error: '会话已使用' });
+      if (sess.expiresAt && sess.expiresAt < now()) return res.status(400).json({ error: '会话已过期' });
+      if (sess.codeHash !== hashCode(String(code || ''))) return res.status(400).json({ error: '无效参数' });
+
+      const user = await db.getUserById(req.user.id);
+      if (!user || !user.qr_login_enabled) return res.status(403).json({ error: '扫码登录已关闭' });
+
+      sess.approvedBy = user.id;
+      if (typeof remember !== 'undefined') sess.remember = !!remember;
+      qrSessions.set(String(rid), sess);
+      logger.info('qr.approve.api', { rid: String(rid), user_id: user.id, remember: !!sess.remember });
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error('qr.approve.error', { err });
+      res.status(500).json({ error: '批准失败' });
+    }
+  });
+
+  // Legacy GET scanning endpoint removed
+
+  // Poll status from the new device
+  router.get('/login/qr/status', async (req, res) => {
+    try {
+      const rid = (req.query.rid || '').toString();
+      const code = (req.query.code || '').toString();
+      const sess = qrSessions.get(rid);
+      if (!rid || !code || !sess) return res.status(404).json({ ok: false, error: 'not_found' });
+      if (sess.codeHash !== hashCode(code)) return res.status(400).json({ ok: false, error: 'invalid' });
+      if (sess.consumed) return res.json({ ok: true, approved: true, consumed: true });
+      if (sess.expiresAt && sess.expiresAt < now()) return res.json({ ok: true, approved: false, expired: true });
+      res.json({ ok: true, approved: !!sess.approvedBy, expired: false });
+    } catch (err) {
+      logger.error('qr.status.error', { err });
+      res.status(500).json({ error: '状态读取失败' });
+    }
+  });
+
+  // Consume: issue cookie for the new device once approved
+  router.post('/login/qr/consume', async (req, res) => {
+    try {
+      const { rid, code, deviceId, alias } = req.body || {};
+      const remember = !!(req.body && (req.body.remember === true || req.body.remember === '1' || req.body.remember === 1 || String(req.body.remember).toLowerCase() === 'true'));
+      if (!rid || !code || !deviceId) return res.status(400).json({ error: '缺少参数' });
+      const sess = qrSessions.get(String(rid));
+      if (!sess) return res.status(404).json({ error: '会话不存在' });
+      if (sess.consumed) return res.status(400).json({ error: '会话已使用' });
+      if (sess.expiresAt && sess.expiresAt < now()) return res.status(400).json({ error: '会话已过期' });
+      if (sess.codeHash !== hashCode(String(code))) return res.status(400).json({ error: '无效二维码' });
+      if (!sess.approvedBy) return res.status(400).json({ error: '尚未批准' });
+
+      const user = await db.getUserById(sess.approvedBy);
+      if (!user) return res.status(400).json({ error: '用户不存在' });
+
+      await db.upsertDevice(String(deviceId), (alias || null), req.headers['user-agent'] || '');
+      const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
+      const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
+      const rememberFinal = (typeof sess.remember === 'boolean') ? !!sess.remember : !!remember;
+      const expiresSec = rememberFinal ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
+      const token = signJWT({ sub: user.id, username: user.username, device_id: String(deviceId), tv: user.token_version || 0 }, jwtSecret, expiresSec);
+      const cookieMaxAge = (rememberFinal && days > 0) ? (expiresSec * 1000) : null;
+      res.cookie(tokenCookieName, token, cookieOptsFor(req, cookieMaxAge));
+      sess.consumed = true;
+      qrSessions.set(String(rid), sess);
+      logger.info('qr.consume', { rid, device_id: String(deviceId) });
+      res.json({ ok: true, needsPasswordChange: !!user.is_default_password });
+    } catch (err) {
+      logger.error('qr.consume.error', { err });
+      res.status(500).json({ error: '登录失败' });
+    }
+  });
+
+  // Toggle QR login availability
+  router.post('/settings/qr', requireAuth, async (req, res) => {
+    try {
+      const { enabled } = req.body || {};
+      const user = await db.getUserById(req.user.id);
+      if (!user) return res.status(404).json({ error: '用户不存在' });
+      const updated = await db.setUserQRLoginEnabled(user.id, !!enabled);
+      logger.info('settings.qr_login', { user_id: user.id, enabled: !!enabled });
+      res.json({ ok: true, enabled: !!updated.qr_login_enabled });
+    } catch (err) {
+      logger.error('settings.qr_login.error', { err });
+      res.status(500).json({ error: '设置失败' });
+    }
+  });
+
   // WebAuthn register start
   router.post('/webauthn/register/start', requireAuth, async (req, res) => {
     try {
@@ -388,6 +528,7 @@ function createAuthRouter(options) {
   router.post('/webauthn/login/finish', async (req, res) => {
     try {
       const { flowId, id, response, deviceId, alias } = req.body || {};
+      const remember = !!(req.body && (req.body.remember === true || req.body.remember === '1' || req.body.remember === 1 || String(req.body.remember).toLowerCase() === 'true'));
       if (!flowId || !id || !response || !deviceId) return res.status(400).json({ error: '缺少参数' });
       const flow = webauthnLogins.get(flowId);
       webauthnLogins.delete(flowId);
@@ -424,11 +565,11 @@ function createAuthRouter(options) {
       const user = await db.getUserById(cred.user_id);
       await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '');
       const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
-      const expiresSec = days > 0 ? days * 24 * 60 * 60 : null;
+      const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
+      const expiresSec = remember ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
       const token = signJWT({ sub: user.id, username: user.username, device_id: deviceId, tv: user.token_version || 0 }, jwtSecret, expiresSec);
-      const cookieOpts = { httpOnly: true, sameSite: 'lax' };
-      if (days > 0) cookieOpts.maxAge = expiresSec * 1000;
-      res.cookie(tokenCookieName, token, cookieOpts);
+      const cookieMaxAge = (remember && days > 0) ? (expiresSec * 1000) : null;
+      res.cookie(tokenCookieName, token, cookieOptsFor(req, cookieMaxAge));
       logger.info('login.passkey.success', { device_id: deviceId });
       res.json({ ok: true, needsPasswordChange: !!user.is_default_password });
     } catch (err) {

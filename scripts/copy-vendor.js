@@ -27,6 +27,8 @@ copy(path.join(root, 'node_modules', 'dompurify', 'dist', 'purify.min.js'), path
 // SweetAlert2 (optional)
 copy(path.join(root, 'node_modules', 'sweetalert2', 'dist', 'sweetalert2.all.min.js'), path.join(vendor, 'sweetalert2.all.min.js'));
 copy(path.join(root, 'node_modules', 'sweetalert2', 'dist', 'sweetalert2.min.css'), path.join(vendor, 'sweetalert2.min.css'));
+// jsQR (QR decoder)
+copy(path.join(root, 'node_modules', 'jsqr', 'dist', 'jsQR.js'), path.join(vendor, 'jsqr.js'));
 
 // Remove highlight.js related artifacts if present (we do not ship code highlighting)
 try { fs.rmSync(path.join(vendor, 'highlight.min.js'), { force: true }); } catch (_) {}

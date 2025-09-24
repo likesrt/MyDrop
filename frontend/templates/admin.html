@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/static/vendor/sweetalert2.min.css" />
     <script src="/static/vendor/sweetalert2.all.min.js"></script>
     <link rel="stylesheet" href="/index.css" />
+    <script src="/static/vendor/jsqr.js"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
@@ -85,6 +86,22 @@
             <div id="totpStatus" class="text-sm text-slate-700">读取中…</div>
             <button id="totpEnableBtn" class="btn pressable">开启</button>
             <button id="totpDisableBtn" class="btn pressable">关闭</button>
+          </div>
+        </div>
+
+        <hr class="my-6" />
+
+        <div class="space-y-3">
+          <h3 class="font-medium">扫码登录</h3>
+          <div class="text-sm text-slate-600">使用已登录设备扫描二维码以在新设备上登录。</div>
+          <div class="flex items-center gap-2">
+            <div id="qrLoginStatus" class="text-sm text-slate-700">读取中…</div>
+            <button id="qrLoginEnableBtn" class="btn pressable">开启</button>
+            <button id="qrLoginDisableBtn" class="btn pressable">关闭</button>
+          </div>
+          <div class="flex items-center gap-2 mt-2">
+            <button id="qrScanBtn" class="btn pressable">扫一扫授权新设备</button>
+            <button id="qrScanFromFileBtn" class="btn pressable">从相册选择二维码</button>
           </div>
         </div>
 

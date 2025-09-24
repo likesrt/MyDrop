@@ -92,6 +92,7 @@ async function init() {
   // schema migrations
   await ensureUserTokenVersionColumn();
   await ensureUser2FAColumns();
+  await ensureUserQRLoginColumn();
   await ensureWebAuthnTables();
   await fixMessagesSenderDeviceIdConstraint();
   await ensureAppMetaTable();
@@ -166,6 +167,14 @@ async function ensureUser2FAColumns() {
   }
   if (!hasTotpEnabled) {
     await run('ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0');
+  }
+}
+
+async function ensureUserQRLoginColumn() {
+  const cols = await all('PRAGMA table_info(users)');
+  const has = cols.some(c => c.name === 'qr_login_enabled');
+  if (!has) {
+    await run('ALTER TABLE users ADD COLUMN qr_login_enabled INTEGER NOT NULL DEFAULT 0');
   }
 }
 
@@ -372,6 +381,16 @@ async function setUserTOTPEnabled(id, secretBase32, enabled) {
   return getUserById(id);
 }
 
+async function setUserQRLoginEnabled(id, enabled) {
+  const now = Date.now();
+  await run('UPDATE users SET qr_login_enabled = ?, updated_at = ? WHERE id = ?', [
+    enabled ? 1 : 0,
+    now,
+    id,
+  ]);
+  return getUserById(id);
+}
+
 async function getWebAuthnCredentialsByUser(userId) {
   return all('SELECT * FROM webauthn_credentials WHERE user_id = ? ORDER BY created_at ASC', [userId]);
 }
@@ -442,6 +461,7 @@ async function countMessages() {
 module.exports = {
   init,
   ensureDefaultUser,
+  getFirstUser: async function () { try { return await get('SELECT * FROM users LIMIT 1'); } catch (_) { return null; } },
   // devices
   upsertDevice,
   getDevice,
@@ -468,6 +488,7 @@ module.exports = {
   getUserById,
   updateUserAuth,
   setUserTOTPEnabled,
+  setUserQRLoginEnabled,
   getWebAuthnCredentialsByUser,
   getWebAuthnCredential,
   addWebAuthnCredential,
