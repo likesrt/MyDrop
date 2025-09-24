@@ -6,11 +6,13 @@ services:
     image: mydrop:latest
     container_name: mydrop
     environment:
+      # Force binding to 0.0.0.0 inside container; control external exposure via ports mapping
       - HOST=0.0.0.0
     env_file:
       - ./.env
     ports:
-      - "${PORT:-3000}:3000"
+      # Use PORT_PUBLISH to control host binding and port, e.g. 127.0.0.1:3000:3000
+      - "${PORT_PUBLISH:-3000:3000}"
     volumes:
       # 挂载上传文件，数据库和日志到宿主机，便于持久化
       - ./uploads:/app/uploads

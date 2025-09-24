@@ -55,8 +55,10 @@ docker compose down       # 停止容器
   - `./database:/app/database`（SQLite 主库与 WAL/SHM）
   - `./uploads:/app/uploads`
   - `./logs:/app/logs`
-- 外部端口：`${PORT:-3000}:3000`（可在 `.env` 中调整 `PORT`）
-- Compose 会将应用在容器内绑定到 `0.0.0.0`，便于宿主访问。
+- 端口映射：使用 `PORT_PUBLISH` 控制主机绑定与端口（`docker-compose.yml` 已内置）。
+  - 仅本机访问：`PORT_PUBLISH=127.0.0.1:3000:3000`
+  - 对外网开放：`PORT_PUBLISH=3000:3000`
+- 容器内绑定：始终使用 `HOST=0.0.0.0`（默认），请勿在 Docker 场景设置为 `127.0.0.1`。
 
 ## 目录结构
 
@@ -85,8 +87,9 @@ docker-compose.yml
 
 ## 环境变量
 
-- `PORT`：服务端口（默认 3000）
-- `HOST`：监听地址（默认 0.0.0.0）
+- `HOST`：进程内监听地址（默认 0.0.0.0；Docker 场景保持默认）
+- `PORT`：进程内监听端口（默认 3000）
+- `PORT_PUBLISH`（docker-compose）：主机IP:主机端口:容器端口（如 `127.0.0.1:3000:3000`）
 - `JWT_SECRET`：JWT 签名密钥（务必强设置）
 - `JWT_EXPIRES_DAYS`：JWT 过期天数（默认 7）
 - `MAX_FILES`：全局文件数量上限（默认 10）
