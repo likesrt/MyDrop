@@ -52,7 +52,7 @@ async function load() {
     }
     if (map.has('autoCleanupEnabled')) vals.autoCleanupEnabled = !/^false|0|no$/i.test(map.get('autoCleanupEnabled'));
     if (map.has('cleanupIntervalAuto')) vals.cleanupIntervalAuto = !/^false|0|no$/i.test(map.get('cleanupIntervalAuto'));
-    if (map.has('cleanupIntervalMinutes')) vals.cleanupIntervalMinutes = Math.max(1, parseInt(map.get('cleanupIntervalMinutes'), 10) || DEFAULTS.cleanupIntervalMinutes);
+    if (map.has('cleanupIntervalMinutes')) vals.cleanupIntervalMinutes = Math.max(30, parseInt(map.get('cleanupIntervalMinutes'), 10) || DEFAULTS.cleanupIntervalMinutes);
     if (map.has('messageTtlDays')) vals.messageTtlDays = Math.max(0, parseInt(map.get('messageTtlDays'), 10) || 0);
     if (map.has('deviceInactiveDays')) vals.deviceInactiveDays = Math.max(0, parseInt(map.get('deviceInactiveDays'), 10) || 0);
     if (map.has('jwtExpiresDays')) vals.jwtExpiresDays = Math.max(0, parseInt(map.get('jwtExpiresDays'), 10) || DEFAULTS.jwtExpiresDays);
@@ -87,7 +87,7 @@ function normalize(partial) {
   return {
     autoCleanupEnabled: 'autoCleanupEnabled' in partial ? bool(partial.autoCleanupEnabled) : curr.autoCleanupEnabled,
     cleanupIntervalAuto: 'cleanupIntervalAuto' in partial ? bool(partial.cleanupIntervalAuto) : curr.cleanupIntervalAuto,
-    cleanupIntervalMinutes: 'cleanupIntervalMinutes' in partial ? num(partial.cleanupIntervalMinutes, curr.cleanupIntervalMinutes, { min: 1 }) : curr.cleanupIntervalMinutes,
+    cleanupIntervalMinutes: 'cleanupIntervalMinutes' in partial ? num(partial.cleanupIntervalMinutes, curr.cleanupIntervalMinutes, { min: 30 }) : curr.cleanupIntervalMinutes,
     messageTtlDays: 'messageTtlDays' in partial ? num(partial.messageTtlDays, curr.messageTtlDays, { min: 0 }) : curr.messageTtlDays,
     deviceInactiveDays: 'deviceInactiveDays' in partial ? num(partial.deviceInactiveDays, curr.deviceInactiveDays, { min: 0 }) : curr.deviceInactiveDays,
     jwtExpiresDays: 'jwtExpiresDays' in partial ? num(partial.jwtExpiresDays, curr.jwtExpiresDays, { min: 0 }) : curr.jwtExpiresDays,

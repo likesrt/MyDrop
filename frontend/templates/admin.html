@@ -132,10 +132,10 @@
               <div>
                 <label class="form-label">清理间隔（分钟）</label>
                 <div class="flex items-center gap-3">
-                  <input type="number" name="cleanupIntervalMinutes" min="1" class="input w-40" placeholder="720" />
+                  <input type="number" name="cleanupIntervalMinutes" min="30" class="input w-40" placeholder="720" />
                   <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="cleanupIntervalAuto" class="mr-1"> 自动</label>
                 </div>
-                <p class="form-help mt-1">定时任务执行频率。勾选“自动”时使用系统建议值（默认 720 分钟）。</p>
+                <p class="form-help mt-1">定时任务执行频率（不少于 30 分钟）。勾选“自动”时使用系统建议值（默认 720 分钟）。</p>
               </div>
               <div>
                 <label class="form-label">消息保留天数</label>

@@ -346,7 +346,7 @@ function scheduleCleanup() {
   try { if (__cleanupIntervalHandle) { clearInterval(__cleanupIntervalHandle); __cleanupIntervalHandle = null; } } catch (_) {}
   const s = settings.getAllSync();
   if (!s.autoCleanupEnabled) return; // disabled
-  const CLEANUP_INTERVAL_MINUTES = Math.max(1, (s.cleanupIntervalAuto ? 720 : (s.cleanupIntervalMinutes | 0)));
+  const CLEANUP_INTERVAL_MINUTES = (s.cleanupIntervalAuto ? 720 : Math.max(30, (s.cleanupIntervalMinutes | 0)));
   // run once on boot (delayed slightly) and then at interval
   setTimeout(runOnce, 10 * 1000).unref?.();
   __cleanupIntervalHandle = setInterval(runOnce, CLEANUP_INTERVAL_MINUTES * 60 * 1000);
