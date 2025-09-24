@@ -42,10 +42,15 @@ async function api(path, opts = {}) {
     }
     return res.json();
   } catch (err) {
+    // 保留上游 ApiError（例如我们在上面根据状态码构造的 401/403 等）
+    if (err instanceof ApiError) {
+      throw err;
+    }
     if (err && (err.name === 'AbortError' || /aborted|timeout/i.test(String(err.message||'')))) {
       throw new ApiError('请求超时', 408, path);
     }
-    throw new ApiError('请求失败', 0, path);
+    // 其他未知错误作为网络/环境问题归类
+    throw new ApiError((err && err.message) ? String(err.message) : '请求失败', 0, path);
   } finally {
     clearTimeout(id);
   }
