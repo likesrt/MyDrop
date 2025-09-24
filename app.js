@@ -8,6 +8,7 @@ const WebSocket = require('ws');
 const createApiRouter = require('./backend/api');
 const db = require('./backend/services/db');
 const { logger, requestLogger } = require('./backend/services/logger');
+const os = require('os');
 
 const app = express();
 // Entry hardening
@@ -19,6 +20,7 @@ const wss = new WebSocket.Server({ server, path: '/ws' });
 // Config
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+const LOG_FILE = process.env.LOG_FILE || '';
 const { verifyJWT } = require('./backend/services/auth');
 const TOKEN_COOKIE = 'token';
 const MAX_FILES = process.env.MAX_FILES ? parseInt(process.env.MAX_FILES, 10) : 10; // total files cap
@@ -44,12 +46,38 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 async function boot() {
   try {
     await db.init();
+
+    // Helpful error handler for common listen failures (port in use, permission)
+    server.on('error', (err) => {
+      const code = (err && err.code) || '';
+      const tips = [];
+      if (code === 'EADDRINUSE') {
+        tips.push(`端口 ${PORT} 已被占用，请尝试：`);
+        tips.push(`- 修改环境变量 PORT（例如：PORT=8080 yarn start）`);
+        tips.push(`- 查找占用进程：Linux: sudo ss -tulnp | grep :${PORT} · macOS: lsof -i :${PORT} · Windows: netstat -ano | findstr :${PORT}`);
+      } else if (code === 'EACCES') {
+        tips.push(`端口 ${PORT} 需要更高权限，请尝试使用 1024 以上的端口，或以具备权限的用户运行。`);
+      } else {
+        tips.push('无法启动服务，请检查端口/权限/环境变量设置。');
+      }
+      // Always print to console
+      console.error('[MyDrop] 启动失败:', code || (err && err.message) || String(err));
+      for (const t of tips) console.error('[MyDrop]', t);
+      // Also log to file/structured logger
+      try { logger.error('server.listen.error', { code, host: HOST, port: PORT, tips }); } catch (_) {}
+      process.exit(1);
+    });
+
     server.listen(PORT, HOST, () => {
       logger.info('server.listen', { host: HOST, port: PORT });
+      printStartupBanner();
     });
+
     if (AUTO_CLEANUP_ENABLED) scheduleCleanup();
   } catch (e) {
     logger.error('db.init.failed', { err: e });
+    // Always print to console for visibility
+    try { console.error('[MyDrop] 数据库初始化失败:', e && e.message ? e.message : String(e)); } catch (_) {}
     process.exit(1);
   }
 }
@@ -269,3 +297,76 @@ function scheduleCleanup() {
   setTimeout(runOnce, 10 * 1000).unref?.();
   setInterval(runOnce, CLEANUP_INTERVAL_MINUTES * 60 * 1000).unref?.();
 }
+
+// demo分支：五分钟定时清空数据库功能
+function scheduleDemoCleanup() {
+  const runDemoCleanup = async () => {
+    try {
+      logger.info('demo.cleanup.start', { message: 'Demo server clearing database' });
+
+      // 清空所有文件
+      try {
+        const files = await db.listAllFiles();
+        for (const f of files) {
+          const p = path.join(UPLOAD_DIR, f.stored_name);
+          try { await fs.promises.unlink(p); } catch (_) {}
+        }
+        logger.info('demo.cleanup.files', { count: files.length });
+      } catch (_) {}
+
+      // 清空所有消息
+      try {
+        await db.clearAllMessages();
+        logger.info('demo.cleanup.messages', { message: 'All messages cleared' });
+      } catch (_) {}
+
+      // 重置管理员用户（但保持已登录状态）
+      try {
+        const { hashPassword } = require('./backend/services/auth');
+        await db.updateUserAuth(1, {
+          username: 'admin',
+          passwordHash: hashPassword('admin'),
+          isDefaultPassword: true
+        });
+        logger.info('demo.cleanup.user', { message: 'Admin user reset' });
+      } catch (_) {}
+
+      logger.info('demo.cleanup.complete', { message: 'Demo cleanup completed' });
+    } catch (e) {
+      logger.error('demo.cleanup.error', { err: e });
+    }
+  };
+
+  // 5分钟定时清理
+  setInterval(runDemoCleanup, 5 * 60 * 1000).unref?.();
+}// 打印启动横幅与常用提示（始终输出到控制台，同时写入日志）
+function printStartupBanner() {
+  try {
+    const localUrl = `http://localhost:${PORT}`;
+    const hostUrl = HOST && HOST !== '0.0.0.0' && HOST !== '::' ? `http://${HOST}:${PORT}` : null;
+    const adminUrl = `${localUrl}/admin`;
+    const wsUrl = `ws://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/ws`;
+    const lines = [
+      'MyDrop 已启动 ✓',
+      `- 监听地址：${HOST}:${PORT}`,
+      `- 本地访问：${localUrl}`,
+      hostUrl ? `- 指定主机：${hostUrl}` : null,
+      `- 设置页面：${adminUrl}`,
+      `- WebSocket：${wsUrl}`,
+      `- 重置管理员：yarn reset:admin（将重置为 admin/admin，并使现有登录失效）`,
+      LOG_FILE ? `- 日志文件：${path.isAbsolute(LOG_FILE) ? LOG_FILE : path.join(process.cwd(), LOG_FILE)}` : '- 日志：标准输出（可设置 LOG_FILE 写入到文件）',
+      `- Node 版本：${process.version} · 平台：${process.platform}/${process.arch} · 主机名：${os.hostname()}`,
+    ].filter(Boolean);
+
+    // Console banner
+    const banner = '
+' + lines.map(s => `[MyDrop] ${s}`).join('
+') + '
+';
+    try { console.log(banner); } catch (_) {}
+
+    // Structured log
+    try { logger.info('startup.banner', { host: HOST, port: PORT, urls: { local: localUrl, host: hostUrl, admin: adminUrl, ws: wsUrl }, log_file: LOG_FILE || null }); } catch (_) {}
+  } catch (_) {}
+}
+
