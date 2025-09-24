@@ -286,9 +286,21 @@
             html: '<div id="qrVideoWrap" class="w-full"><video id="qrVideo" autoplay playsinline class="w-full rounded" style="width:100%;max-height:60vh;background:#000;border-radius:.5rem"></video></div>',
             showCancelButton: true,
             confirmButtonText: '停止',
-            didOpen: () => {
+            didOpen: async () => {
               const el = document.getElementById('qrVideo');
-              if (el) el.srcObject = stream;
+              if (el) {
+                try {
+                  el.setAttribute('playsinline', '');
+                  el.setAttribute('autoplay', '');
+                  el.playsInline = true;
+                  el.muted = true;
+                  el.srcObject = stream;
+                  if (!el.videoWidth || !el.videoHeight) {
+                    await new Promise(r => el.addEventListener('loadedmetadata', r, { once: true }));
+                  }
+                  try { await el.play(); } catch (_) {}
+                } catch (_) {}
+              }
               (function loop() {
                 const target = el || video;
                 async function tick() {
