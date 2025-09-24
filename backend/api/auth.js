@@ -51,13 +51,13 @@ function createAuthRouter(options) {
   async function requireAuth(req, res, next) {
     try {
       const token = req.cookies?.[tokenCookieName] || (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
-      if (!token) return res.status(401).json({ error: 'Not authenticated' });
+      if (!token) return res.status(401).json({ error: '未登录' });
       const claims = verifyJWT(token, jwtSecret);
       // verify token version against DB
       const user = await db.getUserById(claims.sub);
       if (!user || typeof claims.tv !== 'number' || claims.tv !== (user.token_version || 0)) {
         try { res.clearCookie(tokenCookieName, cookieOptsFor(req)); } catch (_) {}
-        return res.status(401).json({ error: 'Invalid token' });
+        return res.status(401).json({ error: '令牌无效' });
       }
       req.user = { id: claims.sub, username: claims.username };
       req.device_id = claims.device_id;
@@ -65,12 +65,12 @@ function createAuthRouter(options) {
       const device = await db.getDevice(req.device_id);
       if (!device) {
         try { res.clearCookie(tokenCookieName, cookieOptsFor(req)); } catch (_) {}
-        return res.status(401).json({ error: 'Device revoked' });
+        return res.status(401).json({ error: '设备已撤销' });
       }
       req.device = device;
       next();
     } catch (e) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({ error: '令牌无效' });
     }
   }
 

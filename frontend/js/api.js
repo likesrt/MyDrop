@@ -17,9 +17,18 @@ async function api(path, opts = {}) {
   try {
     const res = await fetch(path, { ...rest, signal: controller.signal });
     if (!res.ok) {
-      let msg = res.status === 401 ? '未登录' : '请求失败';
       let body = null;
-      try { body = await res.json(); if (body && body.error) msg = body.error; } catch (_) {}
+      try { body = await res.json(); } catch (_) {}
+      // 默认消息映射（避免未登录时显示后端英文文案）
+      let msg;
+      switch (res.status) {
+        case 401: msg = '未登录'; break;
+        case 403: msg = '无权限'; break;
+        case 404: msg = '未找到'; break;
+        default:  msg = res.status >= 500 ? '服务器错误' : '请求失败';
+      }
+      // 除 401 外，后端自定义错误优先（便于显示“用户名不存在/密码错误”等）
+      if (res.status !== 401 && body && body.error) msg = String(body.error);
       if (res.status === 401 && location.pathname !== '/') {
         try { await fetch('/logout', { method: 'POST' }); } catch (_) {}
         location.replace('/');
