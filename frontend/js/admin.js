@@ -417,7 +417,9 @@
             logLevel: (fd.get('logLevel') || 'warn').toString()
           };
           // Validate
-          if (payload.cleanupIntervalMinutes < 1) return toast('清理间隔需 >= 1 分钟', 'warn');
+          if (payload.autoCleanupEnabled && !payload.cleanupIntervalAuto && payload.cleanupIntervalMinutes < 1) {
+            return toast('清理间隔需 >= 1 分钟', 'warn');
+          }
           if (payload.messageTtlDays < 0) return toast('消息保留天数不能为负数', 'warn');
           if (payload.deviceInactiveDays < 0) return toast('未活跃设备清理天数不能为负数', 'warn');
           if (payload.tempLoginTtlMinutes < 1) return toast('临时登录有效期需 >= 1 分钟', 'warn');
