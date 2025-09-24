@@ -111,8 +111,16 @@ app.use((req, res, next) => {
   } catch (_) {}
   next();
 });
-// Ensure local vendor assets are present (copy from node_modules if missing)
-try { require('./scripts/copy-vendor'); } catch (_) {}
+// Ensure local vendor assets only if missing
+try {
+  const vendorDir = path.join(__dirname, 'frontend', 'templates', 'static', 'vendor');
+  const vendorOk = fs.existsSync(path.join(vendorDir, 'marked.min.js'))
+    && fs.existsSync(path.join(vendorDir, 'dompurify.min.js'))
+    && fs.existsSync(path.join(vendorDir, 'sweetalert2.all.min.js'))
+    && fs.existsSync(path.join(vendorDir, 'sweetalert2.min.css'))
+    && fs.existsSync(path.join(vendorDir, 'jsqr.js'));
+  if (!vendorOk) { require('./scripts/copy-vendor'); }
+} catch (_) {}
 // Serve built static assets (Tailwind CSS, vendor libs) under frontend/templates/static
 const TEMPLATES_DIR = path.join(__dirname, 'frontend/templates');
 app.use('/static', express.static(path.join(TEMPLATES_DIR, 'static'), { maxAge: '30d', immutable: true }));
