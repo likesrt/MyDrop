@@ -101,6 +101,7 @@ async function appendMessageToList(newMsg) {
 function bindChat() {
   // 移动端自动隐藏 Header
   try { if (window.MyDropState?.config?.headerAutoHide) window.MyDropUI.setupAutoHideHeader(true); } catch (_) {}
+  try { window.MyDropPWA?.bindInstall(); } catch (_) {}
   window.MyDropUtils.qs('#logoutBtn').addEventListener('click', async () => {
     try { await window.MyDropAPI.api('/logout', { method: 'POST' }); location.reload(); } catch (e) { window.MyDropUI.toast(window.MyDropUI.formatError(e, '退出登录失败'), 'error'); }
   });

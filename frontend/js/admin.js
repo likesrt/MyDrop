@@ -5,16 +5,29 @@
   let currentDeviceId = null;
 
   async function api(path, opts={}) {
-    const res = await fetch(path, opts);
-    if (!res.ok) {
-      let msg = res.status === 401 ? '未登录' : '请求失败';
-      try { const j = await res.json(); if (j && j.error) msg = j.error; } catch(_){}
-      if (res.status === 401) { location.href = '/'; }
-      const err = new Error(msg);
-      err.status = res.status;
-      throw err;
+    const timeoutMs = (typeof opts.timeoutMs === 'number' && opts.timeoutMs > 0) ? opts.timeoutMs : 15000;
+    const controller = new AbortController();
+    const id = setTimeout(() => { try { controller.abort(); } catch(_){} }, timeoutMs);
+    const { timeoutMs: _omit, signal: _s, ...rest } = opts || {};
+    try {
+      const res = await fetch(path, { ...rest, signal: controller.signal });
+      if (!res.ok) {
+        let msg = res.status === 401 ? '未登录' : '请求失败';
+        try { const j = await res.json(); if (j && j.error) msg = j.error; } catch(_){}
+        if (res.status === 401) { location.href = '/'; }
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+      }
+      return res.json();
+    } catch (err) {
+      if (err && (err.name === 'AbortError' || /aborted|timeout/i.test(String(err.message||'')))) {
+        const e = new Error('请求超时'); e.status = 408; throw e;
+      }
+      const e = new Error('请求失败'); e.status = 0; throw e;
+    } finally {
+      clearTimeout(id);
     }
-    return res.json();
   }
 
   function formatError(err, tip='') {
@@ -83,6 +96,9 @@
         toast(formatError(err, '保存失败'), 'error');
       }
     });
+
+    // MFA + Passkeys
+    try { await setupMFAAndPasskeys(); } catch (_) {}
   }
 
   function bindTabs() {
@@ -103,6 +119,187 @@
     if (name === 'devices') renderDevices();
     if (name === 'messages') renderMessages();
     if (name === 'cache') bindCacheTools();
+  }
+
+  async function setupMFAAndPasskeys() {
+    // Load status
+    let me = null;
+    try { me = await api('/me'); } catch (_) { return; }
+    const totpStatus = qs('#totpStatus');
+    const enableBtn = qs('#totpEnableBtn');
+    const disableBtn = qs('#totpDisableBtn');
+    const updateTotpUI = () => {
+      const on = !!(me?.user?.totpEnabled);
+      if (totpStatus) totpStatus.textContent = on ? '已开启' : '未开启';
+      if (enableBtn) enableBtn.disabled = on;
+      if (disableBtn) disableBtn.disabled = !on;
+    };
+    updateTotpUI();
+
+    if (enableBtn) {
+      enableBtn.addEventListener('click', async () => {
+        try {
+          const { value: password } = await Swal.fire({ title: '验证密码以开启', input: 'password', inputAttributes: { autocapitalize: 'off' }, showCancelButton: true, confirmButtonText: '继续', cancelButtonText: '取消' });
+          if (!password) return;
+          const begun = await api('/mfa/totp/begin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+          const secret = begun.secret;
+          const otpauth = begun.otpauth;
+          await Swal.fire({ title: '在认证器中添加账号', html: `<div class="text-left text-sm"><div class="mx-auto" style="width:220px"><img src="/mfa/totp/qr?otpauth=${encodeURIComponent(otpauth)}" alt="QR"/></div><div class="mt-3">密钥：<code>${secret}</code></div><div class="break-all">URI：<code>${otpauth}</code></div><div class="mt-2 text-slate-500">提示：扫描二维码或复制密钥到您的认证器，随后输入显示的6位验证码。</div></div>`, confirmButtonText: '我已添加，下一步' });
+          const { value: code } = await Swal.fire({ title: '输入验证码', input: 'text', inputAttributes: { inputmode: 'numeric', autocapitalize: 'off', autocorrect: 'off' }, showCancelButton: true, confirmButtonText: '启用', cancelButtonText: '取消' });
+          if (!code) return;
+          await api('/mfa/totp/enable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ secret, code }) });
+          me.user.totpEnabled = true;
+          updateTotpUI();
+          toast('已开启二步验证', 'success');
+        } catch (e) {
+          toast(formatError(e, '开启失败'), 'error');
+        }
+      });
+    }
+    if (disableBtn) {
+      disableBtn.addEventListener('click', async () => {
+        try {
+          const { value: password } = await Swal.fire({ title: '验证密码以关闭', input: 'password', showCancelButton: true, confirmButtonText: '关闭', cancelButtonText: '取消' });
+          if (!password) return;
+          await api('/mfa/totp/disable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+          me.user.totpEnabled = false;
+          updateTotpUI();
+          toast('已关闭二步验证', 'success');
+        } catch (e) { toast(formatError(e, '关闭失败'), 'error'); }
+      });
+    }
+
+    // Passkeys
+    const passkeyBtn = qs('#passkeyRegisterBtn');
+    if (passkeyBtn && 'PublicKeyCredential' in window) {
+      passkeyBtn.addEventListener('click', async () => {
+        try {
+          const start = await api('/webauthn/register/start', { method: 'POST' });
+          const pub = start.publicKey;
+          const cred = await navigator.credentials.create({ publicKey: {
+            challenge: Uint8Array.from(atob(pub.challenge.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0)),
+            rp: pub.rp,
+            user: { id: new Uint8Array(pub.user.id?.data || pub.user.id || []), name: pub.user.name, displayName: pub.user.displayName },
+            pubKeyCredParams: pub.pubKeyCredParams,
+            timeout: pub.timeout || 60000,
+            attestation: pub.attestation || 'none',
+            authenticatorSelection: pub.authenticatorSelection || { residentKey: 'preferred', userVerification: 'preferred' },
+          }});
+          const attObj = new Uint8Array(cred.response.attestationObject);
+          const clientDataJSON = new Uint8Array(cred.response.clientDataJSON);
+          // Parse attestation to get public key (PEM) and signCount
+          const parsed = parseAttestation(attObj);
+          const pubkeyPem = coseToPEM(parsed.credentialPublicKey);
+          await api('/webauthn/register/finish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ flowId: start.flowId, credentialId: cred.id, publicKeyPem: pubkeyPem, signCount: parsed.signCount }) });
+          toast('通行密钥注册成功', 'success');
+          await renderPasskeys();
+        } catch (e) {
+          toast(formatError(e, '注册失败'), 'error');
+        }
+      });
+    } else if (passkeyBtn) {
+      passkeyBtn.disabled = true;
+      passkeyBtn.title = '此浏览器不支持通行密钥';
+    }
+
+    await renderPasskeys();
+  }
+
+  async function renderPasskeys() {
+    const root = qs('#passkeyList');
+    if (!root) return;
+    try {
+      const list = await api('/webauthn/credentials');
+      const items = list.credentials || [];
+      if (!items.length) { root.innerHTML = '<div class="text-sm text-slate-500 py-2">暂无通行密钥</div>'; return; }
+      root.innerHTML = items.map(c => {
+        const created = c.created_at ? new Date(c.created_at).toLocaleString() : '';
+        return `<div class="py-2 flex items-center justify-between"><div class="min-w-0"><div class="font-medium text-slate-800 truncate">${c.id}</div><div class="text-xs text-slate-500">创建时间：${created}${c.sign_count?` · 计数：${c.sign_count}`:''}</div></div><div class="shrink-0"><button class="btn pressable" data-del="${c.id}">删除</button></div></div>`;
+      }).join('');
+      root.querySelectorAll('button[data-del]').forEach(b => b.addEventListener('click', async () => {
+        const id = b.getAttribute('data-del');
+        const ok = await showConfirm('确认删除该通行密钥？');
+        if (!ok) return;
+        try { await api('/webauthn/credential/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); toast('已删除', 'success'); renderPasskeys(); } catch (e) { toast(formatError(e, '删除失败'), 'error'); }
+      }));
+    } catch (_) {
+      root.innerHTML = '<div class="text-sm text-slate-500 py-2">无法读取通行密钥</div>';
+    }
+  }
+
+  // Minimal CBOR/COSE helpers for parsing attestation
+  function readUInt(buf, off, len) { let v = 0; for (let i=0;i<len;i++) v = (v<<8) | buf[off+i]; return v >>> 0; }
+  function cborDecodeFirst(input, offset=0) {
+    const buf = (input instanceof Uint8Array) ? input : new Uint8Array(input);
+    function dec(off) {
+      const first = buf[off++];
+      const major = first >> 5;
+      let addl = first & 0x1f;
+      function readLen(a) {
+        if (a < 24) return [a, off];
+        if (a === 24) return [buf[off++], off];
+        if (a === 25) { const v = (buf[off]<<8)|buf[off+1]; off+=2; return [v, off]; }
+        if (a === 26) { const v = (buf[off]<<24)|(buf[off+1]<<16)|(buf[off+2]<<8)|buf[off+3]; off+=4; return [v>>>0, off]; }
+        throw new Error('CBOR: len too large');
+      }
+      if (major === 0) { const [val,nOff]=readLen(addl); return [val, nOff]; }
+      if (major === 1) { const [val,nOff]=readLen(addl); return [-(val+1), nOff]; }
+      if (major === 2) { const [len,nOff]=readLen(addl); const v=buf.slice(nOff,nOff+len); return [v, nOff+len]; }
+      if (major === 3) { const [len,nOff]=readLen(addl); const v=new TextDecoder().decode(buf.slice(nOff,nOff+len)); return [v, nOff+len]; }
+      if (major === 4) { const [len,nOff]=readLen(addl); let arr=[]; let o=nOff; for(let i=0;i<len;i++){ const [v,no]=dec(o); arr.push(v); o=no;} return [arr, o]; }
+      if (major === 5) { const [len,nOff]=readLen(addl); let obj={}; let o=nOff; for(let i=0;i<len;i++){ const [k,ko]=dec(o); const [v,vo]=dec(ko); obj[k]=v; o=vo;} return [obj, o]; }
+      if (major === 6) { const [_,nOff]=readLen(addl); const [v,no]=dec(nOff); return [v, no]; }
+      if (major === 7) { if (addl===20) return [false, off]; if (addl===21) return [true, off]; if (addl===22) return [null, off]; if (addl===23) return [undefined, off]; throw new Error('CBOR simple not supported'); }
+      throw new Error('CBOR major not supported');
+    }
+    return dec(offset);
+  }
+
+  function parseAttestation(att) {
+    const [obj] = cborDecodeFirst(att, 0);
+    const authData = obj.authData || obj[ 'authData' ];
+    const view = new Uint8Array(authData);
+    const rpIdHash = view.slice(0, 32);
+    const flags = view[32];
+    const signCount = readUInt(view, 33, 4);
+    let off = 37;
+    const aaguid = view.slice(off, off+16); off += 16;
+    const credIdLen = readUInt(view, off, 2); off += 2;
+    const credId = view.slice(off, off+credIdLen); off += credIdLen;
+    const [coseKey, keyEnd] = cborDecodeFirst(view, off);
+    // No need to use keyEnd here
+    return { flags, signCount, aaguid, credentialId: credId, credentialPublicKey: coseKey, rpIdHash };
+  }
+
+  function derLen(len) {
+    if (len < 128) return Uint8Array.of(len);
+    const bytes = [];
+    let v = len;
+    while (v > 0) { bytes.unshift(v & 0xff); v >>= 8; }
+    return Uint8Array.of(0x80 | bytes.length, ...bytes);
+  }
+
+  function coseToPEM(cose) {
+    // COSE keys use numeric labels: 1:kty(2=EC2), 3:alg(-7=ES256), -1:crv(1=P-256), -2:x, -3:y
+    const x = cose[-2];
+    const y = cose[-3];
+    const pub = new Uint8Array(1 + x.length + y.length);
+    pub[0] = 0x04; // uncompressed
+    pub.set(x, 1);
+    pub.set(y, 1 + x.length);
+    // AlgorithmIdentifier: SEQ(OID ecPublicKey, OID prime256v1)
+    const oidEc = Uint8Array.from([0x06,0x07,0x2A,0x86,0x48,0xCE,0x3D,0x02,0x01]);
+    const oidP256 = Uint8Array.from([0x06,0x08,0x2A,0x86,0x48,0xCE,0x3D,0x03,0x01,0x07]);
+    const algSeqInner = new Uint8Array([ ...oidEc, ...oidP256 ]);
+    const algSeq = new Uint8Array([0x30, ...derLen(algSeqInner.length), ...algSeqInner]);
+    const bitStringInner = new Uint8Array([0x00, ...pub]);
+    const bitString = new Uint8Array([0x03, ...derLen(bitStringInner.length), ...bitStringInner]);
+    const spkiInner = new Uint8Array([ ...algSeq, ...bitString ]);
+    const spki = new Uint8Array([0x30, ...derLen(spkiInner.length), ...spkiInner]);
+    // to PEM
+    const b64 = btoa(String.fromCharCode.apply(null, spki));
+    const wrapped = b64.replace(/(.{64})/g, '$1\n');
+    return `-----BEGIN PUBLIC KEY-----\n${wrapped}\n-----END PUBLIC KEY-----`;
   }
 
   async function renderDashboard() {

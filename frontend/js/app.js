@@ -53,22 +53,37 @@ function attachMediaLoadScroll() {
 }
 
 (async function init() {
+  // 先渲染骨架屏，避免白屏等待 API
+  try { await window.MyDropTemplates.preloadTemplates(); } catch (_) {}
   try {
-    await window.MyDropTemplates.preloadTemplates();
+    const app = window.MyDropUtils.qs('#app');
+    if (app) app.innerHTML = await window.MyDropTemplates.getTemplate('app-skeleton');
+  } catch (_) {}
+
+  // 并发加载基础数据
+  let basicsOk = false;
+  try {
     await window.MyDropAPI.loadBasics();
-    // 若带有消息锚点，则加载更多消息，提升命中率
-    const hash = (location.hash || '').trim();
-    const needMore = /^#message-(\d+)$/.test(hash);
-    await window.MyDropAPI.loadInitialMessages(needMore ? 1000 : 100);
+    basicsOk = true;
+  } catch (_) { basicsOk = false; }
+
+  if (basicsOk) {
+    try {
+      const hash = (location.hash || '').trim();
+      const needMore = /^#message-(\d+)$/.test(hash);
+      await window.MyDropAPI.loadInitialMessages(needMore ? 1000 : 100);
+    } catch (_) {}
     await render();
     window.MyDropWebSocket.openWS();
-    // 监听 hash 变化，支持后续跳转与高亮
-    window.addEventListener('hashchange', () => {
-      highlightAnchorIfAny();
-    });
-  } catch (_) {
+  } else {
+    // 未登录或 API 暂不可用，先渲染登录页
     await render();
   }
+
+  // 监听 hash 变化，支持后续跳转与高亮
+  window.addEventListener('hashchange', () => {
+    highlightAnchorIfAny();
+  });
 })();
 
 window.MyDropApp = {

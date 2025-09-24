@@ -85,6 +85,8 @@ async function init() {
   )`);
   // schema migrations
   await ensureUserTokenVersionColumn();
+  await ensureUser2FAColumns();
+  await ensureWebAuthnTables();
   await fixMessagesSenderDeviceIdConstraint();
   await ensureDefaultUser();
 }
@@ -146,6 +148,32 @@ async function ensureUserTokenVersionColumn() {
   } catch (e) {
     throw e;
   }
+}
+
+async function ensureUser2FAColumns() {
+  const cols = await all('PRAGMA table_info(users)');
+  const hasTotpSecret = cols.some(c => c.name === 'totp_secret');
+  const hasTotpEnabled = cols.some(c => c.name === 'totp_enabled');
+  if (!hasTotpSecret) {
+    await run('ALTER TABLE users ADD COLUMN totp_secret TEXT');
+  }
+  if (!hasTotpEnabled) {
+    await run('ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0');
+  }
+}
+
+async function ensureWebAuthnTables() {
+  await run(`CREATE TABLE IF NOT EXISTS webauthn_credentials (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    public_key_pem TEXT NOT NULL,
+    sign_count INTEGER NOT NULL,
+    transports TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  await run('CREATE INDEX IF NOT EXISTS idx_webauthn_user ON webauthn_credentials(user_id)');
 }
 
 async function upsertDevice(deviceId, alias, userAgent) {
@@ -253,6 +281,19 @@ async function countFiles() {
   return row ? row.c : 0;
 }
 
+// Cleanup helpers
+async function listFilesForOldMessages(cutoffTs) {
+  return all('SELECT f.* FROM files f JOIN messages m ON f.message_id = m.id WHERE m.created_at < ? ORDER BY f.id ASC', [cutoffTs]);
+}
+
+async function deleteMessagesOlderThan(cutoffTs) {
+  await run('DELETE FROM messages WHERE created_at < ?', [cutoffTs]);
+}
+
+async function deleteInactiveDevices(beforeTs) {
+  await run('DELETE FROM devices WHERE last_seen_at < ?', [beforeTs]);
+}
+
 // Admin utilities
 async function listAllFiles() {
   return all('SELECT * FROM files ORDER BY id ASC');
@@ -288,6 +329,47 @@ async function updateUserAuth(id, { username = null, passwordHash = null, isDefa
   return getUserById(id);
 }
 
+async function setUserTOTPEnabled(id, secretBase32, enabled) {
+  const now = Date.now();
+  await run('UPDATE users SET totp_secret = ?, totp_enabled = ?, updated_at = ? WHERE id = ?', [
+    enabled ? (secretBase32 || null) : null,
+    enabled ? 1 : 0,
+    now,
+    id,
+  ]);
+  return getUserById(id);
+}
+
+async function getWebAuthnCredentialsByUser(userId) {
+  return all('SELECT * FROM webauthn_credentials WHERE user_id = ? ORDER BY created_at ASC', [userId]);
+}
+
+async function getWebAuthnCredential(credId) {
+  return get('SELECT * FROM webauthn_credentials WHERE id = ?', [credId]);
+}
+
+async function addWebAuthnCredential({ userId, credId, publicKeyPem, signCount = 0, transports = null }) {
+  const now = Date.now();
+  await run('INSERT OR REPLACE INTO webauthn_credentials (id, user_id, public_key_pem, sign_count, transports, created_at, updated_at) VALUES (?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM webauthn_credentials WHERE id = ?), ?), ?)', [
+    credId, userId, publicKeyPem, signCount|0, transports, credId, now, now,
+  ]);
+  return getWebAuthnCredential(credId);
+}
+
+async function updateWebAuthnCounter(credId, signCount) {
+  const now = Date.now();
+  await run('UPDATE webauthn_credentials SET sign_count = ?, updated_at = ? WHERE id = ?', [signCount|0, now, credId]);
+}
+
+async function deleteWebAuthnCredential(credId) {
+  await run('DELETE FROM webauthn_credentials WHERE id = ?', [credId]);
+}
+
+async function countWebAuthnCredentials(userId) {
+  const row = await get('SELECT COUNT(1) as c FROM webauthn_credentials WHERE user_id = ?', [userId]);
+  return row ? row.c : 0;
+}
+
 module.exports = {
   init,
   ensureDefaultUser,
@@ -304,9 +386,11 @@ module.exports = {
   listMessages,
   listMessagesByDevice,
   deleteMessage,
+  deleteMessagesOlderThan,
   addFile,
   getFile,
   listFilesByDevice,
+  listFilesForOldMessages,
   deleteFile,
   countFiles,
   listAllFiles,
@@ -314,5 +398,12 @@ module.exports = {
   getUserByUsername,
   getUserById,
   updateUserAuth,
+  setUserTOTPEnabled,
+  getWebAuthnCredentialsByUser,
+  getWebAuthnCredential,
+  addWebAuthnCredential,
+  updateWebAuthnCounter,
+  deleteWebAuthnCredential,
+  countWebAuthnCredentials,
   // users
 };

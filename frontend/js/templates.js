@@ -10,7 +10,8 @@ async function loadTemplate(templatePath) {
   }
 
   try {
-    const response = await fetch(`/templates/components/${templatePath}.html`);
+    const v = (window.MyDropState && window.MyDropState.config && window.MyDropState.config.assetVersion) ? `?v=${encodeURIComponent(window.MyDropState.config.assetVersion)}` : '';
+    const response = await fetch(`/templates/components/${templatePath}.html${v}`);
     if (!response.ok) {
       throw new Error(`Template not found: ${templatePath}`);
     }
@@ -39,6 +40,7 @@ async function getTemplate(templatePath, data = {}) {
 // 预加载常用模板
 async function preloadTemplates() {
   const commonTemplates = [
+    'app-skeleton',
     'chat-layout',
     'login-form',
     'message-item',
