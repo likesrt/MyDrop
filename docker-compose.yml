@@ -6,10 +6,9 @@ services:
     env_file:
       - ./.env
     ports:
-      # Simple mapping using a single variable PORT for both sides.
-      # Change PORT in .env to adjust published port.
+      # 允许直接ip+端口访问
       - "${PORT:-3000}:${PORT:-3000}"
-      # 禁止端口访问需要
+      # 禁止端口访问需要注释下面这行，并注释上面的
       # - "127.0.0.1:${PORT:-3000}:${PORT:-3000}"
     volumes:
       # 挂载上传文件，数据库和日志到宿主机，便于持久化
