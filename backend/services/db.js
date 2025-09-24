@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const sqlite3 = require('sqlite3');
+const Database = require('better-sqlite3');
 
 // 数据库固定使用项目根目录下的 database/sqlite.db，避免与源码混放。
 // 容器中工作目录为 /app，因此绑定挂载 ./database:/app/database 即可持久化。
@@ -9,37 +9,38 @@ const DB_PATH = path.join(DB_DIR, 'sqlite.db');
 let db;
 
 function run(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) return reject(err);
-      resolve(this);
-    });
-  });
+  try {
+    const info = db.prepare(sql).run(params);
+    // sqlite3 API compatibility
+    return Promise.resolve({ lastID: info.lastInsertRowid, changes: info.changes });
+  } catch (e) {
+    return Promise.reject(e);
+  }
 }
 
 function get(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, function (err, row) {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+  try {
+    const row = db.prepare(sql).get(params);
+    return Promise.resolve(row);
+  } catch (e) {
+    return Promise.reject(e);
+  }
 }
 
 function all(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, function (err, rows) {
-      if (err) return reject(err);
-      resolve(rows);
-    });
-  });
+  try {
+    const rows = db.prepare(sql).all(params);
+    return Promise.resolve(rows);
+  } catch (e) {
+    return Promise.reject(e);
+  }
 }
 
 async function init() {
   try { fs.mkdirSync(DB_DIR, { recursive: true }); } catch (_) {}
-  db = new sqlite3.Database(DB_PATH);
-  await run('PRAGMA journal_mode = WAL');
-  await run('PRAGMA foreign_keys = ON');
+  db = new Database(DB_PATH);
+  try { db.pragma('journal_mode = WAL'); } catch (_) { try { await run('PRAGMA journal_mode = WAL'); } catch (_) {} }
+  try { db.pragma('foreign_keys = ON'); } catch (_) { try { await run('PRAGMA foreign_keys = ON'); } catch (_) {} }
 
   await run(`CREATE TABLE IF NOT EXISTS devices (
     device_id TEXT PRIMARY KEY,

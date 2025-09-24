@@ -65,7 +65,13 @@ function createFilesRouter(options) {
       const currentFileCount = await db.countFiles();
       const incoming = (req.files || []).length;
       if (incoming > 0 && currentFileCount + incoming > limits.maxFiles) {
-        for (const f of req.files || []) { try { fs.unlinkSync(f.path); } catch (_) {} }
+        for (const f of req.files || []) {
+          try {
+            const dest = f.destination || uploadDir;
+            const fullPath = path.join(dest, f.filename);
+            fs.unlinkSync(fullPath);
+          } catch (_) {}
+        }
         logger.warn('message.file_limit_reached', { incoming, current: currentFileCount, max: limits.maxFiles });
         return res.status(400).json({ error: `File limit reached. Max ${limits.maxFiles} files.` });
       }

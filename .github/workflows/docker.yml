@@ -1,0 +1,67 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build multi-arch and push to GHCR
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ main, demo ]
+    steps:
+      - name: Checkout ${{ matrix.target }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.target }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta (${{ matrix.target }})
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+          tags: |
+            ${{ matrix.target == 'main' && 'type=raw,value=latest' || '' }}
+            ${{ matrix.target == 'main' && 'type=raw,value=main' || '' }}
+            ${{ matrix.target == 'main' && 'type=ref,event=tag' || '' }}
+            ${{ matrix.target == 'demo' && 'type=raw,value=demo' || '' }}
+            ${{ matrix.target == 'demo' && 'type=ref,event=tag,prefix=demo-' || '' }}
+
+      - name: Build and push (${{ matrix.target }})
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
