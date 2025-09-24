@@ -73,6 +73,29 @@
             <button type="reset" class="btn pressable">重置</button>
           </div>
         </form>
+
+        <hr class="my-6" />
+
+        <div class="space-y-3">
+          <h3 class="font-medium">二步验证（TOTP）</h3>
+          <div class="text-sm text-slate-600">使用认证器应用（如 Google Authenticator、1Password）生成登录验证码。</div>
+          <div class="flex items-center gap-2">
+            <div id="totpStatus" class="text-sm text-slate-700">读取中…</div>
+            <button id="totpEnableBtn" class="btn pressable">开启</button>
+            <button id="totpDisableBtn" class="btn pressable">关闭</button>
+          </div>
+        </div>
+
+        <hr class="my-6" />
+
+        <div class="space-y-3">
+          <h3 class="font-medium">通行密钥（WebAuthn）</h3>
+          <div class="text-sm text-slate-600">在设备上使用生物识别或系统锁登录。</div>
+          <div class="flex items-center gap-2">
+            <button id="passkeyRegisterBtn" class="btn pressable">注册通行密钥</button>
+          </div>
+          <div id="passkeyList" class="divide-y"></div>
+        </div>
       </section>
 
       <section id="tab-devices" class="bg-white rounded shadow p-4 hidden">
