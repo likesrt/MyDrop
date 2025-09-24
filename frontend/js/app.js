@@ -17,14 +17,34 @@ window.MyDropState = {
   _scrollTimer: null,
 };
 
+async function replaceWithFade(html) {
+  const app = window.MyDropUtils.qs('#app');
+  if (!app) return;
+  try { app.style.transition = 'opacity .16s ease'; } catch (_) {}
+  try { app.style.opacity = '0'; } catch (_) {}
+  // 下一帧替换内容，再下一帧淡入，避免布局叠加导致的跳动
+  await new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      app.innerHTML = html;
+      requestAnimationFrame(() => {
+        try { app.style.opacity = '1'; } catch (_) {}
+        // 再下一帧确保 DOM 可查询
+        requestAnimationFrame(resolve);
+      });
+    });
+  });
+}
+
 async function render() {
   const app = window.MyDropUtils.qs('#app');
   if (!window.MyDropState.me) {
-    app.innerHTML = await window.MyDropAuth.renderLogin();
+    const html = await window.MyDropAuth.renderLogin();
+    await replaceWithFade(html);
     window.MyDropAuth.bindLogin();
     return;
   }
-  app.innerHTML = await window.MyDropChat.renderChat();
+  const html = await window.MyDropChat.renderChat();
+  await replaceWithFade(html);
   window.MyDropChat.bindChat();
   try { attachMediaLoadScroll(window.MyDropUtils.qs('#messageList') || document); } catch (_) {}
   // 渲染完成后，如有锚点则跳转并高亮；否则定位到底部
@@ -59,6 +79,12 @@ function attachMediaLoadScroll() {
     const app = window.MyDropUtils.qs('#app');
     if (app) app.innerHTML = await window.MyDropTemplates.getTemplate('app-skeleton');
   } catch (_) {}
+  const skeletonTs = Date.now();
+  const ensureMinDelay = async (start, minMs) => {
+    const now = Date.now();
+    const rest = Math.max(0, minMs - (now - start));
+    if (rest > 0) await new Promise(r => setTimeout(r, rest));
+  };
 
   // 并发加载基础数据
   let basicsOk = false;
@@ -82,12 +108,15 @@ function attachMediaLoadScroll() {
       const needMore = /^#message-(\d+)$/.test(hash);
       await window.MyDropAPI.loadInitialMessages(needMore ? 1000 : 100);
     } catch (_) {}
+    // 略微延迟，避免骨架与实内容“闪屏”
+    await ensureMinDelay(skeletonTs, 100 + Math.floor(Math.random() * 60));
     await render();
     if (window.MyDropState.me) {
       window.MyDropWebSocket.openWS();
     }
   } else {
     // 未登录或 API 暂不可用，先渲染登录页
+    await ensureMinDelay(skeletonTs, 100 + Math.floor(Math.random() * 60));
     await render();
   }
 

@@ -5,7 +5,7 @@ const { logger } = require('../services/logger');
 const os = require('os');
 
 function createAdminRouter(options) {
-  const { db, uploadDir, tokenCookieName, kickDevice, requireAuth } = options;
+  const { db, uploadDir, tokenCookieName, kickDevice, requireAuth, settings } = options;
   const router = express.Router();
 
   function isSecureReq(req) {
@@ -70,18 +70,19 @@ function createAdminRouter(options) {
       const LOG_FILE = process.env.LOG_FILE || '';
       const canDownloadLog = !!LOG_FILE && fs.existsSync(path.isAbsolute(LOG_FILE) ? LOG_FILE : path.join(process.cwd(), LOG_FILE));
 
+      const cfg = settings && settings.getAllSync ? settings.getAllSync() : {};
       res.json({
         ok: true,
-        logLevel: (process.env.LOG_LEVEL || 'info').toLowerCase(),
+        logLevel: (cfg.logLevel || 'info'),
         canDownloadLog,
-        jwtExpiresDays: Number(process.env.JWT_EXPIRES_DAYS || '7') | 0,
+        jwtExpiresDays: Number(cfg.jwtExpiresDays || 7) | 0,
         wsHeartbeat: true,
         version: { app: appVersion, asset: (process.env.ASSET_VERSION || null) },
         cleanup: {
-          enabled: !/^false|0|no$/i.test(process.env.AUTO_CLEANUP_ENABLED || 'true'),
-          intervalMinutes: Number(process.env.CLEANUP_INTERVAL_MINUTES || '15') | 0,
-          messageTtlDays: Number(process.env.MESSAGE_TTL_DAYS || '0') | 0,
-          deviceInactiveDays: Number(process.env.DEVICE_INACTIVE_DAYS || '0') | 0,
+          enabled: !!cfg.autoCleanupEnabled,
+          intervalMinutes: Number(cfg.cleanupIntervalMinutes || 720) | 0,
+          messageTtlDays: Number(cfg.messageTtlDays || 0) | 0,
+          deviceInactiveDays: Number(cfg.deviceInactiveDays || 0) | 0,
           counters: {
             files: stats.cleaned_files_total || 0,
             messages: stats.cleaned_messages_total || 0,
@@ -100,6 +101,42 @@ function createAdminRouter(options) {
     } catch (err) {
       logger.error('admin.status.error', { err });
       res.status(500).json({ error: '无法获取状态' });
+    }
+  });
+
+  // System settings
+  router.get('/admin/settings', requireAuth, async (req, res) => {
+    try {
+      const cfg = settings && settings.getAll ? await settings.getAll() : {};
+      res.json({ ok: true, settings: cfg });
+    } catch (err) {
+      logger.error('admin.settings.get.error', { err });
+      res.status(500).json({ error: '无法获取设置' });
+    }
+  });
+
+  router.post('/admin/settings', requireAuth, async (req, res) => {
+    try {
+      const body = req.body || {};
+      const patch = {
+        autoCleanupEnabled: !!body.autoCleanupEnabled,
+        cleanupIntervalAuto: !!body.cleanupIntervalAuto,
+        cleanupIntervalMinutes: parseInt(body.cleanupIntervalMinutes, 10),
+        messageTtlDays: parseInt(body.messageTtlDays, 10),
+        deviceInactiveDays: parseInt(body.deviceInactiveDays, 10),
+        jwtExpiresDays: parseInt(body.jwtExpiresDays, 10),
+        tempLoginTtlMinutes: parseInt(body.tempLoginTtlMinutes, 10),
+        headerAutoHide: !!body.headerAutoHide,
+        fileSizeLimitMB: parseInt(body.fileSizeLimitMB, 10),
+        maxFiles: parseInt(body.maxFiles, 10),
+        logLevel: String(body.logLevel || 'info').toLowerCase(),
+      };
+      const saved = await settings.update(patch);
+      logger.info('admin.settings.update', { patch });
+      res.json({ ok: true, settings: saved });
+    } catch (err) {
+      logger.error('admin.settings.update.error', { err });
+      res.status(500).json({ error: '保存失败' });
     }
   });
 

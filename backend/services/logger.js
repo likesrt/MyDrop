@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { getClientIp } = require('../utils/ip');
 
 const LOG_LEVEL = (process.env.LOG_LEVEL || 'info').toLowerCase();
 const LOG_FILE = process.env.LOG_FILE || '';
@@ -196,7 +197,7 @@ function requestLogger(logger) {
       }
     } catch (_) {}
     const start = process.hrtime.bigint();
-    const ip = (req.headers['x-forwarded-for'] || '').toString().split(',')[0].trim() || req.ip;
+    const ip = getClientIp(req);
     res.on('finish', () => {
       const durMs = Number(process.hrtime.bigint() - start) / 1e6;
       const meta = {

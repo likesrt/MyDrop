@@ -46,6 +46,8 @@ async function init() {
     device_id TEXT PRIMARY KEY,
     alias TEXT,
     user_agent TEXT,
+    created_ip TEXT,
+    last_ip TEXT,
     created_at INTEGER NOT NULL,
     last_seen_at INTEGER NOT NULL
   )`);
@@ -97,6 +99,7 @@ async function init() {
   await ensureWebAuthnTables();
   await fixMessagesSenderDeviceIdConstraint();
   await ensureAppMetaTable();
+  await ensureDeviceIpColumns();
   await ensureDefaultUser();
 }
 
@@ -193,13 +196,31 @@ async function ensureWebAuthnTables() {
   await run('CREATE INDEX IF NOT EXISTS idx_webauthn_user ON webauthn_credentials(user_id)');
 }
 
-async function upsertDevice(deviceId, alias, userAgent) {
+async function ensureDeviceIpColumns() {
+  // Add created_ip and last_ip columns if missing (backward compatible)
+  try {
+    const cols = await all('PRAGMA table_info(devices)');
+    const hasCreatedIp = Array.isArray(cols) && cols.some(c => c.name === 'created_ip');
+    const hasLastIp = Array.isArray(cols) && cols.some(c => c.name === 'last_ip');
+    if (!hasCreatedIp) {
+      await run('ALTER TABLE devices ADD COLUMN created_ip TEXT');
+    }
+    if (!hasLastIp) {
+      await run('ALTER TABLE devices ADD COLUMN last_ip TEXT');
+    }
+  } catch (e) {
+    // non-fatal
+    console.error('ensureDeviceIpColumns failed:', e && e.message ? e.message : e);
+  }
+}
+
+async function upsertDevice(deviceId, alias, userAgent, ip = null) {
   const now = Date.now();
   const existing = await get('SELECT device_id FROM devices WHERE device_id = ?', [deviceId]);
   if (existing) {
-    await run('UPDATE devices SET alias = COALESCE(?, alias), user_agent = ?, last_seen_at = ? WHERE device_id = ?', [alias, userAgent, now, deviceId]);
+    await run('UPDATE devices SET alias = COALESCE(?, alias), user_agent = ?, last_ip = COALESCE(?, last_ip), last_seen_at = ? WHERE device_id = ?', [alias, userAgent, ip, now, deviceId]);
   } else {
-    await run('INSERT INTO devices (device_id, alias, user_agent, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?)', [deviceId, alias, userAgent, now, now]);
+    await run('INSERT INTO devices (device_id, alias, user_agent, created_ip, last_ip, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [deviceId, alias, userAgent, ip, ip, now, now]);
   }
 }
 
