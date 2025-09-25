@@ -19,9 +19,14 @@ async function renderChat() {
 
 // 快速定位到底部（无动画）- 按照demo.html的实现
 function jumpToBottom() {
-  const el = window.MyDropUtils.qs('#messages');
-  if (!el) return;
-  el.scrollTop = el.scrollHeight;
+  const container = window.MyDropUtils.qs('#messages');
+  if (!container) return;
+  const list = window.MyDropUtils.qs('#messageList');
+  const last = list && list.lastElementChild;
+  if (last && typeof last.scrollIntoView === 'function') {
+    try { last.scrollIntoView({ block: 'end', behavior: 'auto' }); return; } catch (_) {}
+  }
+  container.scrollTop = container.scrollHeight;
 }
 
 // 兼容性：保持原名称
@@ -31,12 +36,14 @@ function scrollToBottom() {
 
 // 平滑滚动到底部（新消息时使用）- 按照demo.html的实现
 function smoothScrollToBottom() {
-  const el = window.MyDropUtils.qs('#messages');
-  if (!el) return;
-  el.scrollTo({
-    top: el.scrollHeight,
-    behavior: 'smooth'
-  });
+  const container = window.MyDropUtils.qs('#messages');
+  if (!container) return;
+  const list = window.MyDropUtils.qs('#messageList');
+  const last = list && list.lastElementChild;
+  if (last && typeof last.scrollIntoView === 'function') {
+    try { last.scrollIntoView({ block: 'end', behavior: 'smooth' }); return; } catch (_) {}
+  }
+  container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
 }
 
 

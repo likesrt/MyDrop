@@ -253,6 +253,12 @@ select.input { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://ww
   overscroll-behavior: contain;
 }
 
+/* 让滚动到底部时，最后一条消息不会被底部 sticky 的输入框遮挡
+   使用 scroll-margin-bottom 仅影响 scrollIntoView 的定位，不增加实际可见留白 */
+#messageList > * {
+  scroll-margin-bottom: calc(var(--composer-h) + 12px + env(safe-area-inset-bottom));
+}
+
 /* 移动端：减少消息区两侧留白，并让气泡小角更贴近边缘 */
 @media (max-width: 640px) {
   #messages { padding-left: 6px; padding-right: 6px; }
