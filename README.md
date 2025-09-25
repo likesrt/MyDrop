@@ -92,18 +92,23 @@ docker-compose.example.yml
   yarn reset:admin
   ```
 
-## 环境变量
+## 环境变量（v1.2.0 起）
 
-- `PORT`：同时用于应用内部监听与 docker-compose 端口映射（默认 3000）
-- `JWT_SECRET`：JWT 签名密钥（务必强设置）
-- `JWT_EXPIRES_DAYS`：JWT 过期天数（默认 7）
-- `TEMP_LOGIN_TTL_MINUTES`：未勾选“记住我”时的临时登录有效期（分钟，默认 10；会话 Cookie，关闭浏览器即清除）
-- `MAX_FILES`：全局文件数量上限（默认 10）
-- `FILE_SIZE_LIMIT_MB`：单文件大小上限 MB（默认 5）
-- `LOG_LEVEL`：日志级别 `error|warn|info|debug`（默认 info）
-- `HEADER_AUTO_HIDE`：移动端自动隐藏顶部设置栏（`0/1/true/false`）
-- 自动清理相关：`AUTO_CLEANUP_ENABLED`、`CLEANUP_INTERVAL_MINUTES`、`MESSAGE_TTL_DAYS`、`DEVICE_INACTIVE_DAYS`
-- 缓存版本：`ASSET_VERSION`
+自 v1.2.0 起，绝大部分运行时配置已迁移至“系统设置”（保存在数据库，运行时可修改并立即生效），不再通过环境变量配置。详情见 release-notes-v1.2.0.md。
+
+仍通过环境变量配置（建议保留/必须项）
+- `JWT_SECRET`：必填，JWT 签名密钥（强随机；多实例需显式统一）
+- `PORT`、`HOST`：服务监听端口与地址（默认 `PORT=3000`）
+- 日志文件（可选）：`LOG_FILE`、`LOG_MAX_SIZE_MB`、`LOG_ROTATE_KEEP`
+- SQLite 兼容性（可选）：`SQLITE_JOURNAL_MODE`（如 WAL 不可用时可设为 `DELETE`）
+- 静态资源缓存（可选）：`ASSET_VERSION`
+
+已迁移到“系统设置”（不要再用环境变量设置）
+- 清理策略：`AUTO_CLEANUP_ENABLED`、`CLEANUP_INTERVAL_MINUTES`、`MESSAGE_TTL_DAYS`、`DEVICE_INACTIVE_DAYS`
+- 上传限制：`FILE_SIZE_LIMIT_MB`、`MAX_FILES`
+- 登录会话：`JWT_EXPIRES_DAYS`、`TEMP_LOGIN_TTL_MINUTES`
+- 前端行为：`HEADER_AUTO_HIDE`
+- 日志级别：`LOG_LEVEL`
 
 ## 更新与升级
 
