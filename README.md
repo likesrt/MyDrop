@@ -7,6 +7,20 @@
 - 数据库：SQLite（单文件，默认位于项目根目录的 `database/sqlite.db`）
 - 静态资源：Tailwind CSS（构建产物）和本地 vendor（Marked、DOMPurify、SweetAlert2）
 
+## 预览
+|主页|设置|系统设置|
+|---|---|---|
+|![image](https://cdn.nodeimage.com/i/WuMtDwuGlMEVXspLvjLM2cWlFvAzX9Xf.png)|![image](https://cdn.nodeimage.com/i/Y12yMfGxohLCN0JemuHABggcVYsIdFer.png)|![image](https://cdn.nodeimage.com/i/I6GNijfv5vEh8Zx0wsgr8wX8BMWzSgpg.png)|
+
+- ~~再来一张和边栏的drop对比~~
+
+![image](https://cdn.nodeimage.com/i/3PVCCZbji7nzpijPwR8H0pBrf9uVfpzO.png)
+
+- 账号设置
+
+![image](https://cdn.nodeimage.com/i/PPYaj2xCaZrMlMuMlNjksJ5kVa7toBXX.png)
+
+
 ## 快速开始（本地）
 
 1) 安装依赖
