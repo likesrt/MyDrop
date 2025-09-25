@@ -163,14 +163,10 @@ function bindChat() {
   const composer = window.MyDropUtils.qs('#composer');
   const sendBtn = window.MyDropUtils.qs('#sendBtn');
   const msgContainer = window.MyDropUtils.qs('#messages');
-  const updateBottomPadding = () => {
-    try { if (composer && msgContainer) msgContainer.style.paddingBottom = (composer.offsetHeight + 8) + 'px'; } catch (_) {}
-  };
   if (msgContainer) {
     const updateStick = () => { try { window.MyDropState.stickToBottom = window.MyDropUtils.isNearBottom(msgContainer, 80); } catch (_) {} };
     updateStick();
     msgContainer.addEventListener('scroll', updateStick);
-    updateBottomPadding();
     // 图片灯箱：点击消息中的图片放大预览
     msgContainer.addEventListener('click', (e) => {
       const img = e.target && e.target.tagName === 'IMG' ? e.target : null;
@@ -202,7 +198,6 @@ function bindChat() {
     const padding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
     const max = lineHeight * maxRows + padding;
     textInput.style.height = Math.min(textInput.scrollHeight, max) + 'px';
-    updateBottomPadding();
   };
   ['input','change'].forEach(evt => textInput.addEventListener(evt, syncHeight));
   setTimeout(syncHeight, 0);
