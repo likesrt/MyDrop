@@ -1,6 +1,8 @@
 demo:
   push:
-    - services:
+    - runner:
+        tags: cnb:arch:amd64
+      services:
         - docker
       stages:
         - name: docker login
