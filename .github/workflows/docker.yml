@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ false }} # disabled: build via CNB (.cnb.yml)
     name: Build multi-arch and push to GHCR (main only)
     runs-on: ubuntu-latest
     steps:
