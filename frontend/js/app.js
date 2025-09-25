@@ -15,6 +15,8 @@ window.MyDropState = {
   _copyBound: false,
   stickToBottom: true,
   _scrollTimer: null,
+  // 在页面首次渲染后，给一个短暂时间窗口强制“跟随到底部”，避免图片等媒体异步加载导致跳不到底部
+  _autoScrollUntil: 0,
 };
 
 async function replaceWithFade(html) {
@@ -46,6 +48,8 @@ async function render() {
   const html = await window.MyDropChat.renderChat();
   await replaceWithFade(html);
   window.MyDropChat.bindChat();
+  // 在没有锚点跳转时，短时间内强制跟随到底部
+  try { window.MyDropState._autoScrollUntil = Date.now() + 1500; } catch (_) {}
   try { attachMediaLoadScroll(window.MyDropUtils.qs('#messageList') || document); } catch (_) {}
   // 渲染完成后，如有锚点则跳转并高亮；否则定位到底部
   requestAnimationFrame(() => {
@@ -56,18 +60,28 @@ async function render() {
 
 function attachMediaLoadScroll() {
   try {
-    const list = window.MyDropUtils.qs('#messageList');
-    if (!list) return;
-    let last = list.lastElementChild;
-    const prev = last ? last.previousElementSibling : null;
-    const targets = [last, prev].filter(Boolean);
-    let media = [];
-    for (const t of targets) media = media.concat(Array.from(t.querySelectorAll('img,video,audio')));
+    const container = window.MyDropUtils.qs('#messages');
+    if (!container) return;
+    const media = Array.from(container.querySelectorAll('img,video,audio'));
+    const onLoaded = () => {
+      try {
+        const c = window.MyDropUtils.qs('#messages');
+        const hasAnchor = /^#message-(\d+)$/.test((location.hash || '').trim());
+        const forceAuto = Date.now() < (window.MyDropState._autoScrollUntil || 0);
+        if (c && (forceAuto && !hasAnchor || window.MyDropUtils.isNearBottom(c, 160))) {
+          setTimeout(window.MyDropChat.jumpToBottom, 30);
+        }
+      } catch (_) {}
+    };
     for (const m of media) {
-      const onLoaded = () => { const c = window.MyDropUtils.qs('#messages'); if (c && window.MyDropUtils.isNearBottom(c, 120)) setTimeout(window.MyDropChat.jumpToBottom, 30); };
-      m.addEventListener('load', onLoaded, { once: true });
-      m.addEventListener('loadedmetadata', onLoaded, { once: true });
-      m.addEventListener('loadeddata', onLoaded, { once: true });
+      const tag = (m.tagName || '').toLowerCase();
+      if (tag === 'img') {
+        if (m.complete) continue; // 已加载无需监听
+        m.addEventListener('load', onLoaded, { once: true });
+      } else {
+        m.addEventListener('loadedmetadata', onLoaded, { once: true });
+        m.addEventListener('loadeddata', onLoaded, { once: true });
+      }
     }
   } catch (_) {}
 }
