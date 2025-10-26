@@ -403,8 +403,9 @@ function createAuthRouter(options) {
       if (!user) return res.status(400).json({ error: '用户不存在' });
 
       await db.upsertDevice(String(deviceId), (alias || null), req.headers['user-agent'] || '');
-      const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
-      const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
+      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { jwtExpiresDays: 7, tempLoginTtlMinutes: 10 };
+      const days = Number.isFinite(cfg.jwtExpiresDays) ? cfg.jwtExpiresDays : 7;
+      const tmpSec = Math.max(60, (parseInt(cfg.tempLoginTtlMinutes, 10) || 10) * 60);
       const rememberFinal = (typeof sess.remember === 'boolean') ? !!sess.remember : !!remember;
       const expiresSec = rememberFinal ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
       const token = signJWT({ sub: user.id, username: user.username, device_id: String(deviceId), tv: user.token_version || 0 }, jwtSecret, expiresSec);
@@ -567,8 +568,9 @@ function createAuthRouter(options) {
 
       const user = await db.getUserById(cred.user_id);
       await db.upsertDevice(deviceId, alias || null, req.headers['user-agent'] || '');
-      const days = Number.isFinite(jwtExpiresDays) ? jwtExpiresDays : 7;
-      const tmpSec = Math.max(60, (parseInt(tempLoginMinutes, 10) || 10) * 60);
+      const cfg = settings && settings.getAllSync ? settings.getAllSync() : { jwtExpiresDays: 7, tempLoginTtlMinutes: 10 };
+      const days = Number.isFinite(cfg.jwtExpiresDays) ? cfg.jwtExpiresDays : 7;
+      const tmpSec = Math.max(60, (parseInt(cfg.tempLoginTtlMinutes, 10) || 10) * 60);
       const expiresSec = remember ? (days > 0 ? days * 24 * 60 * 60 : null) : tmpSec;
       const token = signJWT({ sub: user.id, username: user.username, device_id: deviceId, tv: user.token_version || 0 }, jwtSecret, expiresSec);
       const cookieMaxAge = (remember && days > 0) ? (expiresSec * 1000) : null;
