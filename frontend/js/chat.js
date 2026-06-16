@@ -274,6 +274,12 @@ function bindChat() {
       }
     }
 
+    // 保存输入快照，失败时恢复
+    const inputSnapshot = {
+      text: textInput.value,
+      files: Array.from(fileInput.files || [])
+    };
+
     // Build optimistic message
     const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const optimistic = {
@@ -360,7 +366,7 @@ function bindChat() {
         }
       } catch (_) {}
     } catch (err) {
-      // 发送失败：标记消息为失败状态而非删除，保留用户输入
+      // 发送失败：标记消息为失败状态并恢复输入框内容
       const idx = window.MyDropState.messages.findIndex(m => m.id === tempId);
       if (idx >= 0) {
         window.MyDropState.messages[idx].uploading = false;
@@ -376,24 +382,38 @@ function bindChat() {
           }
         } catch (_) {}
       }
+
+      // 恢复输入框内容
+      try {
+        textInput.value = inputSnapshot.text;
+        const dt = new DataTransfer();
+        for (const f of inputSnapshot.files) {
+          dt.items.add(f);
+        }
+        fileInput.files = dt.files;
+        syncHeight();
+        renderSelectedFiles();
+      } catch (_) {}
+
       window.MyDropUI.toast(window.MyDropUI.formatError(err, '发送失败'), 'error');
     }
   });
 
   /**
-   * 动态调整输入框区域的底部内边距，补偿软键盘高度
+   * 动态调整消息列表区域的底部内边距，补偿软键盘高度
    * 防止软键盘遮挡输入框
    */
   function updateBottomPadding() {
     try {
-      const composer = document.querySelector('#composer');
-      if (!composer) return;
+      const messages = document.querySelector('#messages');
+      if (!messages) return;
 
       const vvHeight = window.visualViewport?.height || window.innerHeight;
       const windowHeight = window.innerHeight;
       const keyboardHeight = Math.max(0, windowHeight - vvHeight);
 
-      composer.style.paddingBottom = keyboardHeight + 'px';
+      // 为消息列表底部增加内边距，为键盘腾出空间
+      messages.style.paddingBottom = keyboardHeight + 'px';
     } catch (_) {}
   }
 
