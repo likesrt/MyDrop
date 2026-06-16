@@ -205,10 +205,25 @@ function bindChat() {
   }
 
   const textInput = window.MyDropUtils.qs('#textInput');
+
+  /**
+   * 键盘提交逻辑：
+   * - 移动端：Enter 直接发送（换行使用 Shift+Enter）
+   * - 桌面端：Ctrl/Cmd+Enter 发送，Enter 换行
+   */
   textInput.addEventListener('keydown', (ev) => {
-    if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
-      ev.preventDefault();
-      composer.requestSubmit();
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (ev.key === 'Enter') {
+      if (isMobile && !ev.shiftKey) {
+        // 移动端：Enter 发送，Shift+Enter 换行
+        ev.preventDefault();
+        composer.requestSubmit();
+      } else if (!isMobile && (ev.ctrlKey || ev.metaKey)) {
+        // 桌面端：Ctrl/Cmd+Enter 发送
+        ev.preventDefault();
+        composer.requestSubmit();
+      }
     }
   });
 
@@ -345,23 +360,42 @@ function bindChat() {
         }
       } catch (_) {}
     } catch (err) {
-      // remove optimistic
+      // 发送失败：标记消息为失败状态而非删除，保留用户输入
       const idx = window.MyDropState.messages.findIndex(m => m.id === tempId);
       if (idx >= 0) {
-        window.MyDropState.messages.splice(idx, 1);
-        try { const el = document.querySelector('#message-' + CSS.escape(tempId)); if (el) el.remove(); } catch (_) {}
-        // Update neighbors grouping
+        window.MyDropState.messages[idx].uploading = false;
+        window.MyDropState.messages[idx].failed = true;
         try {
-          if (idx - 1 >= 0) {
-            const htmlPrev = await window.MyDropRender.renderMessageWithGrouping(idx - 1);
-            const prevOld = document.querySelector('#message-' + window.MyDropState.messages[idx - 1].id);
-            const t = document.createElement('div'); t.innerHTML = htmlPrev; const prevNode = t.firstElementChild; if (prevNode && prevOld) prevOld.replaceWith(prevNode);
+          const msgEl = document.querySelector('#message-' + CSS.escape(tempId));
+          if (msgEl) {
+            const progressEl = msgEl.querySelector('[data-role="msg-progress-text"]');
+            if (progressEl) {
+              progressEl.textContent = '发送失败';
+              progressEl.style.color = '#ef4444';
+            }
           }
         } catch (_) {}
       }
       window.MyDropUI.toast(window.MyDropUI.formatError(err, '发送失败'), 'error');
     }
   });
+
+  /**
+   * 动态调整输入框区域的底部内边距，补偿软键盘高度
+   * 防止软键盘遮挡输入框
+   */
+  function updateBottomPadding() {
+    try {
+      const composer = document.querySelector('#composer');
+      if (!composer) return;
+
+      const vvHeight = window.visualViewport?.height || window.innerHeight;
+      const windowHeight = window.innerHeight;
+      const keyboardHeight = Math.max(0, windowHeight - vvHeight);
+
+      composer.style.paddingBottom = keyboardHeight + 'px';
+    } catch (_) {}
+  }
 
   if (window.visualViewport) {
     const onVV = () => setTimeout(() => {
@@ -487,12 +521,24 @@ window.MyDropChat = {
 };
 
 // 使用 XMLHttpRequest 以支持上传进度
+/**
+ * 使用 XMLHttpRequest 上传消息（带进度回调）
+ *
+ * @param {FormData} formData - 包含文本和文件的表单数据
+ * @param {function} onProgress - 进度回调函数，接收百分比（0-100）
+ * @returns {Promise} 返回服务器响应
+ */
 function uploadMessageWithProgress(formData, onProgress) {
   return new Promise((resolve, reject) => {
     try {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/message');
       xhr.responseType = 'json';
+
+      // 设置超时时间：5 分钟（大文件上传）
+      xhr.timeout = 300000;
+      xhr.ontimeout = () => reject(new Error('上传超时，请检查网络连接'));
+
       if (xhr.upload && typeof onProgress === 'function') {
         xhr.upload.onprogress = (e) => {
           if (e && e.lengthComputable) {

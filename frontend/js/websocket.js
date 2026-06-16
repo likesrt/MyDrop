@@ -1,6 +1,20 @@
 // WebSocket 相关（含心跳与自动重连）
 
+/**
+ * 打开 WebSocket 连接并设置事件处理
+ * 包含心跳机制和自动重连
+ */
 function openWS() {
+  // 检测浏览器是否支持 WebSocket
+  if (!window.WebSocket) {
+    try {
+      window.MyDropUI.toast('您的浏览器不支持实时通信，请升级浏览器', 'error', { timer: 5000 });
+    } catch (_) {
+      alert('您的浏览器不支持 WebSocket，请升级到现代浏览器');
+    }
+    return;
+  }
+
   try { if (window.MyDropState.ws) window.MyDropState.ws.close(); } catch(_) {}
 
   const st = window.MyDropState._wsState || (window.MyDropState._wsState = { retry: 0, hbIntervalId: null, hbTimeoutId: null, reconnectId: null });
@@ -49,8 +63,8 @@ function openWS() {
       if (msg.type === 'message') {
         const incoming = msg.data;
 
-        // 验证消息 ID 有效性，拒绝 null/undefined
-        if (!incoming || incoming.id == null || (typeof incoming.id !== 'number' && typeof incoming.id !== 'string')) {
+        // 验证消息 ID 有效性，拒绝 null/undefined（但允许数字 0）
+        if (!incoming || incoming.id === null || incoming.id === undefined || (typeof incoming.id !== 'number' && typeof incoming.id !== 'string')) {
           return; // 忽略无效消息
         }
 
