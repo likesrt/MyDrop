@@ -383,37 +383,60 @@ function bindChat() {
         } catch (_) {}
       }
 
-      // 恢复输入框内容
+      // 恢复输入框内容（文本 + 文件）
       try {
         textInput.value = inputSnapshot.text;
-        const dt = new DataTransfer();
-        for (const f of inputSnapshot.files) {
-          dt.items.add(f);
+
+        // 尝试恢复文件列表（兼容性方案）
+        let filesRestored = false;
+        try {
+          const dt = new DataTransfer();
+          for (const f of inputSnapshot.files) {
+            dt.items.add(f);
+          }
+          fileInput.files = dt.files;
+          filesRestored = true;
+        } catch (dtErr) {
+          // DataTransfer 不支持时的降级方案：提示用户重新选择
+          if (inputSnapshot.files.length > 0) {
+            const fileNames = inputSnapshot.files.map(f => f.name).join(', ');
+            window.MyDropUI.toast(`文件需重新选择：${fileNames}`, 'warn', { timer: 4000 });
+          }
         }
-        fileInput.files = dt.files;
+
         syncHeight();
-        renderSelectedFiles();
-      } catch (_) {}
+        if (filesRestored) renderSelectedFiles();
+
+        // 恢复焦点（如果原本已聚焦）
+        if (wasFocused) {
+          try {
+            textInput.focus({ preventScroll: true });
+            textInput.setSelectionRange(textInput.value.length, textInput.value.length);
+          } catch (_) {}
+        }
+      } catch (restoreErr) {
+        console.error('Failed to restore input state:', restoreErr);
+      }
 
       window.MyDropUI.toast(window.MyDropUI.formatError(err, '发送失败'), 'error');
     }
   });
 
   /**
-   * 动态调整消息列表区域的底部内边距，补偿软键盘高度
-   * 防止软键盘遮挡输入框
+   * 动态调整输入框位置，补偿软键盘高度
+   * 使用 transform 向上推高输入框，防止被键盘遮挡
    */
   function updateBottomPadding() {
     try {
-      const messages = document.querySelector('#messages');
-      if (!messages) return;
+      const composer = document.querySelector('#composer');
+      if (!composer) return;
 
       const vvHeight = window.visualViewport?.height || window.innerHeight;
       const windowHeight = window.innerHeight;
       const keyboardHeight = Math.max(0, windowHeight - vvHeight);
 
-      // 为消息列表底部增加内边距，为键盘腾出空间
-      messages.style.paddingBottom = keyboardHeight + 'px';
+      // 使用 transform 向上推高输入框
+      composer.style.transform = keyboardHeight > 0 ? `translateY(-${keyboardHeight}px)` : '';
     } catch (_) {}
   }
 
