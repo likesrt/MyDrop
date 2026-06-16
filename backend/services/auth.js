@@ -126,7 +126,15 @@ function totp(secretBase32, step = 30, t0 = 0, digits = 6, algo = 'sha1') {
   return hotp(secretBase32, counter, digits, algo);
 }
 
-function verifyTOTP(code, secretBase32, { step = 30, window = 1, digits = 6, algo = 'sha1' } = {}) {
+/**
+ * 验证 TOTP 代码
+ *
+ * @param {string} code - 用户输入的 6 位验证码
+ * @param {string} secretBase32 - Base32 编码的密钥
+ * @param {object} opts - 选项：step（时间步长，默认 30s）、window（时间窗口，默认 0）、digits（位数，默认 6）、algo（算法，默认 sha1）
+ * @returns {boolean} 验证是否通过
+ */
+function verifyTOTP(code, secretBase32, { step = 30, window = 0, digits = 6, algo = 'sha1' } = {}) {
   const now = Math.floor(Date.now() / 1000);
   const center = Math.floor(now / step);
   const target = String(code || '').replace(/\s+/g, '');

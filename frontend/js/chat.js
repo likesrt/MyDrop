@@ -40,6 +40,11 @@ function smoothScrollToBottom() {
 }
 
 
+/**
+ * 添加文件到输入框，带大小和数量限制
+ *
+ * @param {FileList|Array} newFiles - 待添加的文件列表
+ */
 function addFilesToInput(newFiles = []) {
   const fileInput = window.MyDropUtils.qs('#fileInput');
   if (!fileInput) return;
@@ -47,16 +52,36 @@ function addFilesToInput(newFiles = []) {
   const existing = Array.from(fileInput.files || []);
   const incoming = Array.from(newFiles || []);
   const sizeLimit = (window.MyDropState.config?.fileSizeLimitMB || 5) * 1024 * 1024;
-  let added = 0; const skipped = [];
+  const maxFiles = window.MyDropState.config?.maxFiles || 1000;
+
+  let added = 0;
+  const skipped = [];
+  const oversized = [];
+
   for (const f of existing) dt.items.add(f);
-  for (const f of incoming) {
-    if (f && typeof f.size === 'number' && f.size > sizeLimit) { skipped.push(f.name || ''); continue; }
-    if (f) { dt.items.add(f); added++; }
+
+  // 检查是否超出总数限制
+  if (existing.length + incoming.length > maxFiles) {
+    window.MyDropUI.toast(`文件总数不能超过 ${maxFiles} 个`, 'warn');
+    return;
   }
+
+  for (const f of incoming) {
+    if (f && typeof f.size === 'number' && f.size > sizeLimit) {
+      oversized.push(f.name || '');
+      continue;
+    }
+    if (f) {
+      dt.items.add(f);
+      added++;
+    }
+  }
+
   fileInput.files = dt.files;
   fileInput.dispatchEvent(new Event('change'));
+
   if (added) window.MyDropUI.toast(`已添加 ${added} 个文件`, 'success');
-  if (skipped.length) window.MyDropUI.toast(`超出大小限制：${skipped.join(', ')}`, 'warn');
+  if (oversized.length) window.MyDropUI.toast(`超出大小限制：${oversized.join(', ')}`, 'warn');
 }
 
 async function appendMessageToList(newMsg) {

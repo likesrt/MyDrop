@@ -48,6 +48,12 @@ function openWS() {
       }
       if (msg.type === 'message') {
         const incoming = msg.data;
+
+        // 验证消息 ID 有效性，拒绝 null/undefined
+        if (!incoming || incoming.id == null || (typeof incoming.id !== 'number' && typeof incoming.id !== 'string')) {
+          return; // 忽略无效消息
+        }
+
         // If an optimistic temp message exists for my own send, replace it instead of pushing
         try {
           const myDid = window.MyDropState?.me?.device?.device_id || null;
@@ -75,7 +81,11 @@ function openWS() {
           }
         } catch (_) {}
 
-        if (!window.MyDropState.messages.some(m => String(m.id) === String(incoming.id))) {
+        // 使用严格相等检查，避免类型转换导致的误匹配
+        const existingMsg = window.MyDropState.messages.find(m =>
+          m.id != null && incoming.id != null && m.id === incoming.id
+        );
+        if (!existingMsg) {
           window.MyDropState.messages.push(incoming);
           await window.MyDropChat.appendMessageToList(incoming);
         }

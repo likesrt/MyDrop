@@ -44,15 +44,35 @@ function renderWithMarked(text) {
   }
 }
 
+/**
+ * 渲染 Markdown 内容并进行 XSS 防护
+ *
+ * @param {string} text - Markdown 文本
+ * @returns {string} 安全的 HTML 字符串
+ */
 function renderMarkdownWithCards(text) {
   try {
     const md = getMarkdownRenderer();
     let raw = md ? md.render(text || '') : null;
     if (!raw) raw = renderWithMarked(text);
     if (!raw || !window.DOMPurify) return window.MyDropUtils.escapeHTML(text).replace(/\n/g, '<br/>');
-    raw = raw.replace(/<a\s+/g, '<a target="_blank" rel="noreferrer noopener" ');
-    const clean = window.DOMPurify.sanitize(raw, { ALLOWED_ATTR: ['href','title','target','rel','src','alt','class'] });
-    const html = `<div class="md-body">${clean}</div>`;
+
+    // 先使用 DOMPurify 净化 HTML，再安全地添加链接属性
+    const clean = window.DOMPurify.sanitize(raw, {
+      ALLOWED_ATTR: ['href','title','src','alt','class'],
+      ALLOW_DATA_ATTR: false
+    });
+
+    // 使用 DOM API 安全地为所有链接添加 target 和 rel 属性
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = clean;
+    const links = tempDiv.querySelectorAll('a[href]');
+    for (const link of links) {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noreferrer noopener');
+    }
+
+    const html = `<div class="md-body">${tempDiv.innerHTML}</div>`;
     return html;
   } catch (_) {
     return window.MyDropUtils.escapeHTML(text).replace(/\n/g, '<br/>');

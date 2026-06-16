@@ -75,26 +75,41 @@ async function getAll() { return _cache ? Object.assign({}, _cache) : load(); }
 
 function bool(v) { return !!v; }
 
-function num(v, def, { min = null } = {}) {
+/**
+ * 标准化并验证数值的合理范围
+ *
+ * @param {*} v - 待验证的值
+ * @param {number} def - 默认值
+ * @param {object} opts - 选项：min（最小值）、max（最大值）
+ * @returns {number} 验证后的数值
+ */
+function num(v, def, { min = null, max = null } = {}) {
   let n = parseInt(v, 10);
   if (!Number.isFinite(n)) n = def;
   if (min !== null && n < min) n = min;
+  if (max !== null && n > max) n = max;
   return n;
 }
 
+/**
+ * 标准化配置项，包含合理范围限制
+ *
+ * @param {object} partial - 待更新的部分配置
+ * @returns {object} 标准化后的完整配置
+ */
 function normalize(partial) {
   const curr = getAllSync();
   return {
     autoCleanupEnabled: 'autoCleanupEnabled' in partial ? bool(partial.autoCleanupEnabled) : curr.autoCleanupEnabled,
     cleanupIntervalAuto: 'cleanupIntervalAuto' in partial ? bool(partial.cleanupIntervalAuto) : curr.cleanupIntervalAuto,
-    cleanupIntervalMinutes: 'cleanupIntervalMinutes' in partial ? num(partial.cleanupIntervalMinutes, curr.cleanupIntervalMinutes, { min: 30 }) : curr.cleanupIntervalMinutes,
-    messageTtlDays: 'messageTtlDays' in partial ? num(partial.messageTtlDays, curr.messageTtlDays, { min: 0 }) : curr.messageTtlDays,
-    deviceInactiveDays: 'deviceInactiveDays' in partial ? num(partial.deviceInactiveDays, curr.deviceInactiveDays, { min: 0 }) : curr.deviceInactiveDays,
-    jwtExpiresDays: 'jwtExpiresDays' in partial ? num(partial.jwtExpiresDays, curr.jwtExpiresDays, { min: 0 }) : curr.jwtExpiresDays,
-    tempLoginTtlMinutes: 'tempLoginTtlMinutes' in partial ? num(partial.tempLoginTtlMinutes, curr.tempLoginTtlMinutes, { min: 1 }) : curr.tempLoginTtlMinutes,
+    cleanupIntervalMinutes: 'cleanupIntervalMinutes' in partial ? num(partial.cleanupIntervalMinutes, curr.cleanupIntervalMinutes, { min: 30, max: 10080 }) : curr.cleanupIntervalMinutes, // 最大 7 天
+    messageTtlDays: 'messageTtlDays' in partial ? num(partial.messageTtlDays, curr.messageTtlDays, { min: 0, max: 3650 }) : curr.messageTtlDays, // 最大 10 年
+    deviceInactiveDays: 'deviceInactiveDays' in partial ? num(partial.deviceInactiveDays, curr.deviceInactiveDays, { min: 0, max: 3650 }) : curr.deviceInactiveDays,
+    jwtExpiresDays: 'jwtExpiresDays' in partial ? num(partial.jwtExpiresDays, curr.jwtExpiresDays, { min: 0, max: 365 }) : curr.jwtExpiresDays, // 最大 1 年
+    tempLoginTtlMinutes: 'tempLoginTtlMinutes' in partial ? num(partial.tempLoginTtlMinutes, curr.tempLoginTtlMinutes, { min: 1, max: 1440 }) : curr.tempLoginTtlMinutes, // 最大 24 小时
     headerAutoHide: 'headerAutoHide' in partial ? bool(partial.headerAutoHide) : curr.headerAutoHide,
-    fileSizeLimitMB: 'fileSizeLimitMB' in partial ? num(partial.fileSizeLimitMB, curr.fileSizeLimitMB, { min: 1 }) : curr.fileSizeLimitMB,
-    maxFiles: 'maxFiles' in partial ? num(partial.maxFiles, curr.maxFiles, { min: 1 }) : curr.maxFiles,
+    fileSizeLimitMB: 'fileSizeLimitMB' in partial ? num(partial.fileSizeLimitMB, curr.fileSizeLimitMB, { min: 1, max: 1024 }) : curr.fileSizeLimitMB, // 最大 1GB
+    maxFiles: 'maxFiles' in partial ? num(partial.maxFiles, curr.maxFiles, { min: 1, max: 100000 }) : curr.maxFiles, // 最大 10 万个文件
     logLevel: (function(){ const l = (partial.logLevel ?? curr.logLevel); const x = String(l).toLowerCase(); return ['error','warn','info','debug'].includes(x) ? x : curr.logLevel; })(),
   };
 }

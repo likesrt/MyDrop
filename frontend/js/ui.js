@@ -11,6 +11,16 @@ function formatError(err, tip = '') {
 }
 
 const _ToastActiveKeys = new Set();
+const MAX_TOAST_COUNT = 5; // 最多同时显示 5 个 toast
+
+/**
+ * 显示顶部居中堆叠提示
+ *
+ * @param {string} message - 提示内容
+ * @param {string} type - 类型：info/success/warn/error
+ * @param {object} opts - 选项：timer（持续时间，默认 2200ms）、key（去重键）
+ * @returns {Promise} 完成时 resolve 的 Promise
+ */
 function toast(message, type = 'info', opts = {}) {
   // 自定义顶部居中堆叠提示，避免 SweetAlert2 的互相覆盖问题
   const timer = Number.isFinite(opts.timer) ? Math.max(1000, opts.timer | 0) : 2200;
@@ -35,7 +45,16 @@ function toast(message, type = 'info', opts = {}) {
       document.body.appendChild(container);
     }
 
+    // 限制同时显示的 toast 数量，移除最旧的
+    const existingToasts = container.querySelectorAll('[data-toast]');
+    if (existingToasts.length >= MAX_TOAST_COUNT) {
+      try {
+        existingToasts[0].remove();
+      } catch (_) {}
+    }
+
     const item = document.createElement('div');
+    item.setAttribute('data-toast', '');
     item.textContent = String(message || '');
     item.setAttribute('role', 'status');
     item.style.pointerEvents = 'none'; // 不可点击，避免遮挡

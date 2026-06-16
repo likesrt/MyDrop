@@ -20,24 +20,52 @@ function createAdminRouter(options) {
     return base;
   }
 
-  // Delete device and optionally its messages/files
+  /**
+   * 删除设备及其关联的消息和文件
+   * 使用事务保证一致性，防止并发竞态条件
+   */
   router.post('/admin/device/delete', requireAuth, async (req, res) => {
     try {
       const { deviceId, removeMessages } = req.body || {};
       if (!deviceId) return res.status(400).json({ error: '缺少设备ID' });
 
+      let filesToDelete = [];
+      let removedMsgCount = 0;
+      let removedFileCount = 0;
+
       if (removeMessages) {
-        const files = await db.listFilesByDevice(deviceId);
-        for (const f of files) {
-          const p = path.join(uploadDir, f.stored_name);
-          try { await fs.promises.unlink(p); } catch (_) {}
+        try {
+          db.rawDb().prepare('BEGIN IMMEDIATE').run();
+
+          // 在事务中查询并删除数据库记录
+          const files = await db.listFilesByDevice(deviceId);
+          filesToDelete = files; // 保存待删除的磁盘文件列表
+
+          const msgs = await db.listMessagesByDevice(deviceId);
+          removedMsgCount = msgs.length;
+          for (const m of msgs) {
+            await db.deleteMessage(m.id);
+          }
+
+          db.rawDb().prepare('COMMIT').run();
+        } catch (err) {
+          try { db.rawDb().prepare('ROLLBACK').run(); } catch (_) {}
+          throw err;
         }
 
-        const msgs = await db.listMessagesByDevice(deviceId);
-        for (const m of msgs) { await db.deleteMessage(m.id); }
+        // 数据库已清除，现在删除磁盘文件（失败不影响一致性）
+        for (const f of filesToDelete) {
+          const p = path.join(uploadDir, f.stored_name);
+          try {
+            await fs.promises.unlink(p);
+            removedFileCount++;
+          } catch (_) {}
+        }
+
+        // 更新统计
         try {
-          if (files && files.length) await db.incrementStat('cleaned_files_total', files.length);
-          if (msgs && msgs.length) await db.incrementStat('cleaned_messages_total', msgs.length);
+          if (removedFileCount > 0) await db.incrementStat('cleaned_files_total', removedFileCount);
+          if (removedMsgCount > 0) await db.incrementStat('cleaned_messages_total', removedMsgCount);
         } catch (_) {}
       }
 
@@ -49,7 +77,12 @@ function createAdminRouter(options) {
         try { res.clearCookie(tokenCookieName, cookieOptsFor(req)); } catch (_) {}
       }
 
-      logger.info('admin.device.delete', { device_id: deviceId, remove_messages: !!removeMessages });
+      logger.info('admin.device.delete', {
+        device_id: deviceId,
+        remove_messages: !!removeMessages,
+        removed_msgs: removedMsgCount,
+        removed_files: removedFileCount
+      });
       res.json({ ok: true });
     } catch (err) {
       logger.error('admin.device.delete.error', { err });
