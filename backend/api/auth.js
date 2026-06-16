@@ -19,6 +19,8 @@ function createAuthRouter(options) {
   const QR_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
   function now() { return Date.now(); }
+
+  // 垃圾回收：定时清理 + 每次访问时惰性清理，防止高频场景下内存泄漏
   function gcEphemeral() {
     const limit = now() - FLOW_TTL_MS;
     for (const [k, v] of pendingMFA.entries()) { if ((v.issuedAt || 0) < limit) pendingMFA.delete(k); }
@@ -28,6 +30,15 @@ function createAuthRouter(options) {
     const nowTs = now();
     for (const [k, v] of qrSessions.entries()) { if ((v.expiresAt || 0) < nowTs || v.consumed) qrSessions.delete(k); }
   }
+
+  // QR 会话惰性清理：在每次访问 qrSessions 前清理过期条目，防止高频场景下 1 分钟内积累大量过期会话
+  function gcQrSessions() {
+    const nowTs = now();
+    for (const [k, v] of qrSessions.entries()) {
+      if ((v.expiresAt || 0) < nowTs || v.consumed) qrSessions.delete(k);
+    }
+  }
+
   setInterval(gcEphemeral, 60 * 1000).unref?.();
 
   function randomId(bytes = 32) {
@@ -310,6 +321,7 @@ function createAuthRouter(options) {
   // Create a new QR login session
   router.post('/login/qr/start', async (req, res) => {
     try {
+      gcQrSessions(); // 惰性清理过期会话
       const rid = randomId(16);
       const code = randomId(16);
       const createdAt = now();

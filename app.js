@@ -237,8 +237,17 @@ const clients = new Map(); // sid -> { ws, deviceId }
 function broadcastMessage(message) {
   const payload = JSON.stringify({ type: 'message', data: message });
   let sent = 0;
-  for (const { ws } of clients.values()) {
-    if (ws.readyState === WebSocket.OPEN) { ws.send(payload); sent++; }
+  for (const [token, { ws }] of clients.entries()) {
+    if (ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(payload);
+        sent++;
+      } catch (e) {
+        // 连接已关闭但 readyState 尚未更新，从客户端列表中移除
+        clients.delete(token);
+        try { logger.warn('ws.send.failed', { reason: e.message }); } catch (_) {}
+      }
+    }
   }
   try { if (message?.id) logger.debug('ws.broadcast', { message_id: message.id, recipients: sent }); } catch(_) {}
 }

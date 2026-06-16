@@ -50,22 +50,44 @@ function createMessagesRouter(options) {
   // Clear all messages (admin)
   router.post('/admin/messages/clear', requireAuth, async (req, res) => {
     try {
-      const files = await db.listAllFiles();
-      const msgCountBefore = await db.countMessages();
+      // 使用事务保证数据库和磁盘文件的一致性
+      let files = [];
+      let removedMsgs = 0;
+      try {
+        db.rawDb().prepare('BEGIN IMMEDIATE').run();
+
+        // 先从数据库读取文件列表和消息数
+        files = await db.listAllFiles();
+        const msgCountBefore = await db.countMessages();
+
+        // 清空数据库记录（由于外键级联，files 表也会被清空）
+        removedMsgs = await db.clearAllMessages();
+
+        db.rawDb().prepare('COMMIT').run();
+      } catch (err) {
+        try { db.rawDb().prepare('ROLLBACK').run(); } catch (_) {}
+        throw err;
+      }
+
+      // 数据库已清空，现在删除磁盘文件（失败不影响一致性，因为孤立文件可手动清理）
+      let removedFileCount = 0;
       try {
         for (const f of files) {
           const p = path.join(uploadDir, f.stored_name);
-          try { await fs.promises.unlink(p); } catch (_) {}
+          try {
+            await fs.promises.unlink(p);
+            removedFileCount++;
+          } catch (_) {}
         }
       } catch (_) {}
 
-      const removedMsgs = await db.clearAllMessages();
+      // 更新统计
       try {
         if (files && files.length) await db.incrementStat('cleaned_files_total', files.length);
-        const msgsToCount = removedMsgs || msgCountBefore || 0;
-        if (msgsToCount) await db.incrementStat('cleaned_messages_total', msgsToCount);
+        if (removedMsgs) await db.incrementStat('cleaned_messages_total', removedMsgs);
       } catch (_) {}
-      logger.info('admin.messages.clear', { cleared_messages: true, file_count: (files || []).length });
+
+      logger.info('admin.messages.clear', { cleared_messages: removedMsgs, file_count: files.length, removed_files: removedFileCount });
       res.json({ ok: true });
     } catch (err) {
       logger.error('admin.messages.clear.error', { err });

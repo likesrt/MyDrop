@@ -54,21 +54,28 @@ function createFilesRouter(options) {
       cb(null, unique);
     },
   });
-  function makeUpload() {
+  // Multer 配置缓存：在 settings 更新时重新创建实例，避免每次请求都创建
+  let cachedUploader = null;
+  let cachedSizeMB = null;
+
+  function getUploader() {
     const cfg = settings && settings.getAllSync ? settings.getAllSync() : {};
     const sizeMB = Number(cfg.fileSizeLimitMB || (limits && limits.fileSizeLimitMB) || 5) | 0;
-    return multer({ storage, limits: { fileSize: Math.max(1, sizeMB) * 1024 * 1024 } });
+    // 仅在配置变更时重新创建 multer 实例
+    if (!cachedUploader || cachedSizeMB !== sizeMB) {
+      cachedSizeMB = sizeMB;
+      cachedUploader = multer({ storage, limits: { fileSize: Math.max(1, sizeMB) * 1024 * 1024 } });
+    }
+    return { uploader: cachedUploader, sizeMB };
   }
 
   // Send message with files
   router.post('/message', requireAuth, async (req, res) => {
     try {
-      // Build a per-request upload middleware using current settings
-      const cfgForSize = settings && settings.getAllSync ? settings.getAllSync() : {};
-      const sizeMB = Number(cfgForSize.fileSizeLimitMB || (limits && limits.fileSizeLimitMB) || 5) | 0;
-      const uploader = makeUpload().array('files');
+      // 使用缓存的 uploader 实例
+      const { uploader, sizeMB } = getUploader();
       try {
-        await new Promise((resolve, reject) => uploader(req, res, (err) => err ? reject(err) : resolve()));
+        await new Promise((resolve, reject) => uploader.array('files')(req, res, (err) => err ? reject(err) : resolve()));
       } catch (e) {
         if (e && e.code === 'LIMIT_FILE_SIZE') {
           return res.status(400).json({ error: `文件大小超过上限 ${sizeMB}MB` });
@@ -78,11 +85,49 @@ function createFilesRouter(options) {
       const senderDeviceId = req.device_id;
       const text = (req.body.text || '').toString();
 
-      const currentFileCount = await db.countFiles();
       const incoming = (req.files || []).length;
       const cfg = settings && settings.getAllSync ? settings.getAllSync() : {};
       const maxFiles = Number(cfg.maxFiles || (limits && limits.maxFiles) || 10) | 0;
-      if (incoming > 0 && currentFileCount + incoming > maxFiles) {
+
+      // 使用事务原子性地检查文件配额并插入，防止并发上传绕过限制
+      let msg;
+      let totalSize = 0;
+      try {
+        db.rawDb().prepare('BEGIN IMMEDIATE').run();
+
+        const currentFileCount = await db.countFiles();
+        if (incoming > 0 && currentFileCount + incoming > maxFiles) {
+          db.rawDb().prepare('ROLLBACK').run();
+          // 清理已上传的磁盘文件
+          for (const f of req.files || []) {
+            try {
+              const dest = f.destination || uploadDir;
+              const fullPath = path.join(dest, f.filename);
+              fs.unlinkSync(fullPath);
+            } catch (_) {}
+          }
+          logger.warn('message.file_limit_reached', { incoming, current: currentFileCount, max: maxFiles });
+          return res.status(400).json({ error: `File limit reached. Max ${maxFiles} files.` });
+        }
+
+        msg = await db.createMessage({ senderDeviceId, text });
+        if (req.files && req.files.length) {
+          for (const f of req.files) {
+            totalSize += f.size || 0;
+            await db.addFile({
+              messageId: msg.id,
+              storedName: path.basename(f.filename),
+              originalName: decodeUploadName(f.originalname),
+              mimeType: f.mimetype,
+              size: f.size,
+            });
+          }
+        }
+
+        db.rawDb().prepare('COMMIT').run();
+      } catch (err) {
+        try { db.rawDb().prepare('ROLLBACK').run(); } catch (_) {}
+        // 清理已上传的磁盘文件
         for (const f of req.files || []) {
           try {
             const dest = f.destination || uploadDir;
@@ -90,23 +135,10 @@ function createFilesRouter(options) {
             fs.unlinkSync(fullPath);
           } catch (_) {}
         }
-        logger.warn('message.file_limit_reached', { incoming, current: currentFileCount, max: maxFiles });
-        return res.status(400).json({ error: `File limit reached. Max ${maxFiles} files.` });
+        throw err;
       }
 
-      const msg = await db.createMessage({ senderDeviceId, text });
       if (req.files && req.files.length) {
-        let totalSize = 0;
-        for (const f of req.files) {
-          totalSize += f.size || 0;
-          await db.addFile({
-            messageId: msg.id,
-            storedName: path.basename(f.filename),
-            originalName: decodeUploadName(f.originalname),
-            mimeType: f.mimetype,
-            size: f.size,
-          });
-        }
         logger.info('message.sent', { message_id: msg.id, device_id: senderDeviceId, text_len: text.length, file_count: req.files.length, total_size: totalSize });
       } else {
         logger.info('message.sent', { message_id: msg.id, device_id: senderDeviceId, text_len: text.length, file_count: 0, total_size: 0 });

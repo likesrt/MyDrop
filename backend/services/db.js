@@ -39,7 +39,16 @@ function all(sql, params = []) {
 async function init() {
   try { fs.mkdirSync(DB_DIR, { recursive: true }); } catch (_) {}
   db = new Database(DB_PATH);
-  try { db.pragma('journal_mode = WAL'); } catch (_) { try { await run('PRAGMA journal_mode = WAL'); } catch (_) {} }
+
+  // 尝试启用 WAL 模式以提升并发性能；若失败则回退到 DELETE 模式（适用于不支持 WAL 的文件系统如某些 NFS）
+  const journalMode = process.env.SQLITE_JOURNAL_MODE || 'WAL';
+  try {
+    db.pragma(`journal_mode = ${journalMode}`);
+  } catch (e) {
+    console.warn(`[MyDrop] 无法设置 journal_mode=${journalMode}，回退到 DELETE 模式:`, e.message);
+    try { db.pragma('journal_mode = DELETE'); } catch (_) {}
+  }
+
   try { db.pragma('foreign_keys = ON'); } catch (_) { try { await run('PRAGMA foreign_keys = ON'); } catch (_) {} }
 
   await run(`CREATE TABLE IF NOT EXISTS devices (
@@ -216,11 +225,13 @@ async function ensureDeviceIpColumns() {
 
 async function upsertDevice(deviceId, alias, userAgent, ip = null) {
   const now = Date.now();
+  // 防止 IP 为 null 导致审计信息丢失，使用占位符
+  const safeIp = ip || '0.0.0.0';
   const existing = await get('SELECT device_id FROM devices WHERE device_id = ?', [deviceId]);
   if (existing) {
-    await run('UPDATE devices SET alias = COALESCE(?, alias), user_agent = ?, last_ip = COALESCE(?, last_ip), last_seen_at = ? WHERE device_id = ?', [alias, userAgent, ip, now, deviceId]);
+    await run('UPDATE devices SET alias = COALESCE(?, alias), user_agent = ?, last_ip = ?, last_seen_at = ? WHERE device_id = ?', [alias, userAgent, safeIp, now, deviceId]);
   } else {
-    await run('INSERT INTO devices (device_id, alias, user_agent, created_ip, last_ip, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [deviceId, alias, userAgent, ip, ip, now, now]);
+    await run('INSERT INTO devices (device_id, alias, user_agent, created_ip, last_ip, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [deviceId, alias, userAgent, safeIp, safeIp, now, now]);
   }
 }
 
@@ -524,4 +535,5 @@ module.exports = {
   getStats,
   countMessages,
   // users
+  rawDb: () => db, // 暴露原始 db 实例用于事务控制
 };
