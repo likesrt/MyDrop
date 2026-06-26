@@ -102,18 +102,32 @@ function createAuthRouter(options) {
       const user = await db.getUserByUsername(username);
       if (!user) {
         logger.warn('login.failed.no_user', { username: username || '', ip: req.ip });
-        return res.status(401).json({ error: '用户名不存在' });
+        // 统一错误消息，不区分用户名不存在和密码错误，防止用户名枚举
+        return res.status(401).json({ error: '用户名或密码不正确' });
       }
 
       if (!verifyPassword(password, user.password_hash)) {
         logger.warn('login.failed.bad_password', { username: username || '', ip: req.ip });
-        return res.status(401).json({ error: '密码错误' });
+        return res.status(401).json({ error: '用户名或密码不正确' });
       }
 
       // If TOTP is enabled, require second factor
       if (user.totp_enabled) {
         const mfaToken = randomId(24);
-        pendingMFA.set(mfaToken, { userId: user.id, username: user.username, deviceId, alias: alias || null, remember: !!remember, issuedAt: now() });
+        // 绑定请求来源信息，防止 MFA token 被劫持后在另一设备上使用
+        const clientIp = getClientIp(req);
+        const ua = req.headers['user-agent'] || '';
+        const uaHash = crypto.createHash('sha256').update(ua).digest('hex').slice(0, 16);
+        pendingMFA.set(mfaToken, {
+          userId: user.id,
+          username: user.username,
+          deviceId,
+          alias: alias || null,
+          remember: !!remember,
+          issuedAt: now(),
+          clientIp,
+          uaHash,
+        });
         logger.info('login.password_ok_mfa_required', { device_id: deviceId });
         return res.json({ ok: true, mfaRequired: 'totp', mfaToken });
       }
@@ -142,6 +156,22 @@ function createAuthRouter(options) {
       if (!mfaToken || !code) return res.status(400).json({ error: '缺少验证码' });
       const flow = pendingMFA.get(mfaToken);
       if (!flow) return res.status(400).json({ error: '登录会话已过期' });
+
+      // 验证请求来源：比对 IP 和 User-Agent 哈希，防止 MFA token 被劫持
+      const clientIp = getClientIp(req);
+      const ua = req.headers['user-agent'] || '';
+      const uaHash = crypto.createHash('sha256').update(ua).digest('hex').slice(0, 16);
+      if (flow.clientIp && flow.clientIp !== clientIp) {
+        pendingMFA.delete(mfaToken);
+        logger.warn('login.totp.ip_mismatch', { expected: flow.clientIp, actual: clientIp, user_id: flow.userId });
+        return res.status(400).json({ error: '登录会话已过期' });
+      }
+      if (flow.uaHash && flow.uaHash !== uaHash) {
+        pendingMFA.delete(mfaToken);
+        logger.warn('login.totp.ua_mismatch', { user_id: flow.userId });
+        return res.status(400).json({ error: '登录会话已过期' });
+      }
+
       pendingMFA.delete(mfaToken);
       const user = await db.getUserById(flow.userId);
       if (!user || !user.totp_enabled || !user.totp_secret) return res.status(400).json({ error: '二步验证未开启' });
@@ -326,7 +356,18 @@ function createAuthRouter(options) {
       const code = randomId(16);
       const createdAt = now();
       const expiresAt = createdAt + QR_TTL_MS;
-      qrSessions.set(rid, { codeHash: hashCode(code), createdAt, expiresAt, approvedBy: null, consumed: false });
+      // 绑定发起设备的 IP 和 UA，防止 rid/code 泄露后的跨设备劫持
+      const clientIp = getClientIp(req);
+      const ua = req.headers['user-agent'] || '';
+      qrSessions.set(rid, {
+        codeHash: hashCode(code),
+        createdAt,
+        expiresAt,
+        approvedBy: null,
+        consumed: false,
+        clientIp,
+        uaHash: crypto.createHash('sha256').update(ua).digest('hex').slice(0, 16),
+      });
       const origin = getExpectedOrigin(req);
       const scanUrl = `${origin}/login/qr/scan?rid=${encodeURIComponent(rid)}&code=${encodeURIComponent(code)}`;
       res.json({ ok: true, rid, code, expiresAt, scanUrl });
@@ -411,6 +452,19 @@ function createAuthRouter(options) {
       if (sess.codeHash !== hashCode(String(code))) return res.status(400).json({ error: '无效二维码' });
       if (!sess.approvedBy) return res.status(400).json({ error: '尚未批准' });
 
+      // 验证 consume 请求的来源与 QR 创建时一致，防止 rid/code 泄露后跨设备劫持
+      const clientIp = getClientIp(req);
+      const ua = req.headers['user-agent'] || '';
+      const uaHash = crypto.createHash('sha256').update(ua).digest('hex').slice(0, 16);
+      if (sess.clientIp && sess.clientIp !== clientIp) {
+        logger.warn('qr.consume.ip_mismatch', { rid, expected: sess.clientIp, actual: clientIp });
+        return res.status(400).json({ error: '会话无效' });
+      }
+      if (sess.uaHash && sess.uaHash !== uaHash) {
+        logger.warn('qr.consume.ua_mismatch', { rid });
+        return res.status(400).json({ error: '会话无效' });
+      }
+
       const user = await db.getUserById(sess.approvedBy);
       if (!user) return res.status(400).json({ error: '用户不存在' });
 
@@ -467,7 +521,7 @@ function createAuthRouter(options) {
         pubKeyCredParams: pubkeyCredParams,
         timeout: 60000,
         attestation: 'none',
-        authenticatorSelection: { residentKey: 'preferred', userVerification: 'preferred' },
+        authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
       };
       res.json({ ok: true, flowId, publicKey: options });
     } catch (err) {
@@ -484,8 +538,23 @@ function createAuthRouter(options) {
       webauthnRegs.delete(flowId);
       if (!flow) return res.status(400).json({ error: '注册会话已过期' });
       if (!credentialId || !publicKeyPem) return res.status(400).json({ error: '缺少凭证' });
+
+      // 基本格式校验：验证 publicKeyPem 是合法的 PEM 公钥格式
+      const pemStr = String(publicKeyPem).trim();
+      if (!pemStr.startsWith('-----BEGIN ') || !pemStr.includes('-----END ')) {
+        logger.warn('webauthn.register.invalid_pem', { user_id: flow.userId });
+        return res.status(400).json({ error: '无效的公钥格式' });
+      }
+      try {
+        // 尝试解析为 crypto 支持的密钥格式，确保能够通过后登录时的签名验证
+        crypto.createPublicKey(pemStr);
+      } catch (e) {
+        logger.warn('webauthn.register.pem_parse_failed', { user_id: flow.userId });
+        return res.status(400).json({ error: '公钥格式无法解析' });
+      }
+
       const credId = String(credentialId);
-      await db.addWebAuthnCredential({ userId: flow.userId, credId, publicKeyPem: String(publicKeyPem), signCount: parseInt(signCount || '0', 10) || 0, transports: transports ? String(transports) : null });
+      await db.addWebAuthnCredential({ userId: flow.userId, credId, publicKeyPem: pemStr, signCount: parseInt(signCount || '0', 10) || 0, transports: transports ? String(transports) : null });
       logger.info('webauthn.register.success', { user_id: flow.userId });
       res.json({ ok: true });
     } catch (err) {
@@ -531,7 +600,7 @@ function createAuthRouter(options) {
         challenge,
         rpId,
         timeout: 60000,
-        userVerification: 'preferred',
+        userVerification: 'required',
       };
       res.json({ ok: true, flowId, publicKey: options });
     } catch (err) {
@@ -564,6 +633,8 @@ function createAuthRouter(options) {
       const flags = authData[32];
       const up = !!(flags & 0x01);
       if (!up) return res.status(400).json({ error: '需要用户存在(UP)' });
+      const uv = !!(flags & 0x04);
+      if (!uv) return res.status(400).json({ error: '需要用户验证(UV)' });
       const signCount = authData.readUInt32BE(33);
 
       const sig = b64urlToBuffer(response.signature);

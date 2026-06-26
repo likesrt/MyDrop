@@ -46,7 +46,12 @@ const LOG_FILE = process.env.LOG_FILE || '';
 const { verifyJWT } = require('./backend/services/auth');
 const TOKEN_COOKIE = 'token';
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET;
+// 严格检查：JWT_SECRET 为空时直接退出，避免回退到不安全状态
+if (!JWT_SECRET) {
+  console.error('[MyDrop] 严重错误：JWT_SECRET 为空，无法安全启动。请检查 .env 文件。');
+  process.exit(1);
+}
 // Runtime settings backed by DB (migrated from env)
 const settings = require('./backend/services/settings');
 // DEVICE_INACTIVE_DAYS remains env-controlled for now
@@ -288,9 +293,23 @@ wss.on('connection', async (ws, req) => {
   clients.set(token, { ws, deviceId: claims.device_id, userId: claims.sub });
   logger.info('ws.connect', { device_id: claims.device_id });
 
+  // 每连接速率限制：防止 DoS
+  const RATE_LIMIT_WINDOW_MS = 1000;  // 时间窗口（1 秒）
+  const RATE_LIMIT_MAX_MSG = 10;      // 每窗口最多消息数
+  let msgTimestamps = [];
+
   ws.on('message', async (raw) => {
     // For future ping/pong or typing events
     try {
+      // 速率限制检查
+      const now = Date.now();
+      msgTimestamps = msgTimestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+      if (msgTimestamps.length >= RATE_LIMIT_MAX_MSG) {
+        logger.warn('ws.rate_limit', { device_id: claims.device_id });
+        return;
+      }
+      msgTimestamps.push(now);
+
       const msg = JSON.parse(raw.toString());
       if (msg.type === 'ping') {
         ws.send(JSON.stringify({ type: 'pong', t: Date.now() }));
@@ -311,13 +330,24 @@ process.on('unhandledRejection', (err) => {
   try { logger.error('unhandledRejection', { err }); } catch (_) {}
 });
 process.on('uncaughtException', (err) => {
-  try { logger.error('uncaughtException', { err }); } catch (_) {}
+  try { logger.error('uncaughtException', { err }); } catch (_) {
+    console.error('[MyDrop] uncaughtException:', err && err.message ? err.message : String(err));
+  }
+  // uncaughtException 后进程状态不可信，记录日志后退出，依赖进程管理器自动重启
+  process.exit(1);
 });
 
 // Periodic cleanup of old data and inactive devices
 let __cleanupIntervalHandle = null;
 function scheduleCleanup() {
+  let __cleanupRunning = false;
   const runOnce = async () => {
+    // 并发锁：如果上一次清理还在执行，跳过本次
+    if (__cleanupRunning) {
+      logger.debug('cleanup.skip_concurrent', {});
+      return;
+    }
+    __cleanupRunning = true;
     try {
       let removedFiles = 0;
       let removedMessages = 0;
@@ -349,6 +379,8 @@ function scheduleCleanup() {
       }
     } catch (e) {
       logger.error('cleanup.error', { err: e });
+    } finally {
+      __cleanupRunning = false; // 清理结束，释放锁
     }
   };
   // Clear any existing interval

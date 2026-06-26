@@ -26,9 +26,9 @@ function openWS() {
   const scheduleReconnect = () => {
     if (st.reconnectId) return;
     const base = 1000; // 1s
-    const max = 20000; // 20s
+    const max = 60000; // 60s（增长到 60s 减少服务器频繁重连压力）
     const delay = Math.min(base * Math.pow(2, st.retry), max);
-    st.retry = Math.min(st.retry + 1, 10);
+    st.retry = Math.min(st.retry + 1, 20);
     st.reconnectId = setTimeout(() => { st.reconnectId = null; openWS(); }, delay);
   };
 
@@ -45,12 +45,32 @@ function openWS() {
     }, 12000);
   };
 
-  ws.addEventListener('open', () => {
+  ws.addEventListener('open', async () => {
     st.retry = 0;
     clearTimers();
     st.hbIntervalId = setInterval(sendPing, 20000);
     // 立即发送一次以建立心跳节奏
     setTimeout(sendPing, 200);
+
+    // 重连后拉取断线期间的增量消息，避免丢失
+    try {
+      const msgs = window.MyDropState?.messages || [];
+      const lastId = msgs.length > 0 ? msgs[msgs.length - 1].id : null;
+      if (lastId && typeof lastId === 'number') {
+        const result = await window.MyDropAPI.api(`/messages?sinceId=${encodeURIComponent(lastId)}&limit=200`);
+        const incoming = (result && result.messages) || [];
+        const existingIds = new Set(msgs.map(m => m.id));
+        for (const m of incoming) {
+          if (m.id != null && !existingIds.has(m.id)) {
+            window.MyDropState.messages.push(m);
+            existingIds.add(m.id);
+            try { await window.MyDropChat.appendMessageToList(m); } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {
+      // 增量拉取失败不影响已有消息
+    }
   });
 
   ws.addEventListener('message', async (ev) => {

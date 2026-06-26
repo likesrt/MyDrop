@@ -180,6 +180,17 @@ function createAdminRouter(options) {
       if (!LOG_FILE) return res.status(400).json({ error: '未配置日志文件' });
       const abs = path.isAbsolute(LOG_FILE) ? LOG_FILE : path.join(process.cwd(), LOG_FILE);
       if (!fs.existsSync(abs)) return res.status(404).json({ error: '日志文件不存在' });
+
+      // 检查文件大小，超过 100MB 时提示用户
+      const st = fs.statSync(abs);
+      const MAX_LOG_DOWNLOAD_MB = 100;
+      if (st.size > MAX_LOG_DOWNLOAD_MB * 1024 * 1024) {
+        const sizeMB = Math.round(st.size / 1024 / 1024);
+        return res.status(400).json({
+          error: `日志文件过大（${sizeMB}MB），超过下载限制（${MAX_LOG_DOWNLOAD_MB}MB）。请使用 tail -n 查看最新日志。`
+        });
+      }
+
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', `attachment; filename="${path.basename(abs)}"`);
       fs.createReadStream(abs).pipe(res);

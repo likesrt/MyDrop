@@ -87,11 +87,18 @@ function base32Encode(buf) {
 
 function base32Decode(str) {
   const s = String(str || '').toUpperCase().replace(/=+$/g, '');
+  // 验证字符串是否全部由合法 Base32 字符组成
+  if (s.length === 0) return Buffer.alloc(0);
+  const validRe = /^[A-Z2-7]+$/;
+  if (!validRe.test(s)) {
+    throw new Error('Invalid base32 characters');
+  }
   let bits = 0;
   let value = 0;
   const out = [];
   for (let i = 0; i < s.length; i++) {
     const idx = BASE32_ALPHABET.indexOf(s[i]);
+    // 已验证过，不会出现 -1，但保留防御性检查
     if (idx === -1) continue;
     value = (value << 5) | idx;
     bits += 5;

@@ -59,7 +59,7 @@ function renderMarkdownWithCards(text) {
 
     // 先使用 DOMPurify 净化 HTML，再安全地添加链接属性
     const clean = window.DOMPurify.sanitize(raw, {
-      ALLOWED_ATTR: ['href','title','src','alt','class'],
+      ALLOWED_ATTR: ['href','title','src','alt','class','controls','width','height','type','poster','autoplay','loop','muted'],
       ALLOW_DATA_ATTR: false
     });
 

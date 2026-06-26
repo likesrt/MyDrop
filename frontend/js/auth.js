@@ -156,10 +156,16 @@ function bindLogin() {
           let endAt = expiresAt ? new Date(expiresAt) : null;
 
           let timer = null; let closed = false;
+          let pollFailCount = 0;
+          const POLL_MAX_FAIL = 3; // 连续失败 3 次后显示网络不可用提示
           const poll = async () => {
             if (closed) return;
             try {
               const st = await window.MyDropAPI.api(`/login/qr/status?rid=${encodeURIComponent(rid)}&code=${encodeURIComponent(code)}`);
+              pollFailCount = 0; // 成功后重置失败计数
+              // 清除网络错误提示（如果之前显示了）
+              const errEl = document.getElementById('qrNetError');
+              if (errEl) try { errEl.remove(); } catch (_) {}
               if (st && st.approved && !st.consumed) {
                 const body = { rid, code, deviceId, alias, remember };
                 await window.MyDropAPI.api('/login/qr/consume', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -182,7 +188,21 @@ function bindLogin() {
                   const txt = document.getElementById('qrExpireText'); if (txt) txt.textContent = endAt ? `请使用已登录设备扫描二维码进行授权，有效期至：${endAt.toLocaleTimeString()}` : '请使用已登录设备扫描二维码进行授权';
                 } catch (_) {}
               }
-            } catch (_) { /* ignore transient */ }
+            } catch (_) {
+              pollFailCount++;
+              if (pollFailCount >= POLL_MAX_FAIL) {
+                // 连续失败多次，显示网络不可用提示
+                let errEl = document.getElementById('qrNetError');
+                if (!errEl) {
+                  errEl = document.createElement('div');
+                  errEl.id = 'qrNetError';
+                  errEl.className = 'text-xs text-red-500 mt-2';
+                  errEl.textContent = '网络连接失败，请检查网络';
+                  const qrContainer = document.getElementById('qrImg')?.parentElement;
+                  if (qrContainer) qrContainer.appendChild(errEl);
+                }
+              }
+            }
             timer = setTimeout(poll, 1500);
           };
 

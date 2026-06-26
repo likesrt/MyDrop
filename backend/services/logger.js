@@ -32,6 +32,7 @@ class Logger {
     this.level = levelVal(LOG_LEVEL);
     this.rotating = false;
     this.queue = [];
+    this.MAX_QUEUE_SIZE = 1000; // 队列最大长度，防止轮转失败时的 OOM
     this.stream = null;
     this._sizeAtOpen = 0;
     this.maxBytes = Math.max(1, LOG_MAX_SIZE_MB) * 1024 * 1024;
@@ -58,7 +59,13 @@ class Logger {
       try {
         const projected = this._currentSize() + Buffer.byteLength(line);
         if (projected > this.maxBytes) {
-          this.queue.push(line);
+          // 队列限制：防止轮转失败时无限堆积导致 OOM
+          if (this.queue.length < this.MAX_QUEUE_SIZE) {
+            this.queue.push(line);
+          } else {
+            // 队列已满，丢弃旧日志并输出到 stderr
+            console.error('[MyDrop] 日志队列已满，丢弃日志：' + line.trim());
+          }
           this._rotate();
           return;
         }
@@ -124,7 +131,11 @@ Logger.prototype._rotate = function () {
   const finalize = () => {
     try {
       const rotatedPath = this._makeRotatedFilename();
-      try { fs.renameSync(this.filePath, rotatedPath); } catch (_) {}
+      // 使用异步 rename 避免阻塞事件循环
+      try { fs.promises.rename(this.filePath, rotatedPath); } catch (_) {
+        // 同步回退（如 /tmp 等不支持异步 rename 的文件系统）
+        try { fs.renameSync(this.filePath, rotatedPath); } catch (_) {}
+      }
       this._openStream();
       this._pruneOld();
     } finally {
