@@ -1,0 +1,8 @@
+branch:
+  - buttons:
+      - name: 构建 Docker 镜像
+        description: 构建并推送 Docker 镜像（amd64 + arm64）
+        event: web_trigger_build_docker
+      - name: 拉取 GitHub 代码
+        description: 从 GitHub 拉取最新代码并强制推送
+        event: web_trigger_pull_github
