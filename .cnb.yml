@@ -69,7 +69,6 @@ main:
               - latest-linux-arm64
             type: docker
 
-  web_trigger:
     - name: pull-from-github
       stages:
         - name: pull from github
