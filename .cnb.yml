@@ -1,6 +1,7 @@
 main:
-  push:
-    - runner:
+  web_trigger:
+    - name: build-docker
+      runner:
         tags: cnb:arch:amd64
       services:
         - docker
@@ -18,7 +19,8 @@ main:
           options:
             key: build-amd64
 
-    - runner:
+    - name: build-docker
+      runner:
         tags: cnb:arch:arm64:v8
       services:
         - docker
@@ -36,7 +38,8 @@ main:
           options:
             key: build-arm64
 
-    - services:
+    - name: build-docker
+      services:
         - docker
       env:
         IMAGE_TAG: ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest
@@ -65,3 +68,15 @@ main:
               - latest-linux-amd64
               - latest-linux-arm64
             type: docker
+
+  web_trigger:
+    - name: pull-from-github
+      stages:
+        - name: pull from github
+          script: >
+            git remote add github "https://github.com/likesrt/MyDrop.git"
+
+            git fetch github --prune --tags --force
+
+            git push origin +refs/remotes/github/main:refs/heads/main
+            +refs/remotes/github/demo:refs/heads/demo --tags --force
