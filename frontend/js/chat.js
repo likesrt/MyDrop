@@ -254,6 +254,8 @@ function bindChat() {
         if (document.activeElement === textInput) {
           // 阻止按钮获取焦点，保持输入框与键盘
           ev.preventDefault();
+          // preventDefault 会阻止后续 click 事件，手动触发表单提交
+          composer.requestSubmit();
         }
       } catch(_) {}
     }, { passive: false });
@@ -424,19 +426,25 @@ function bindChat() {
 
   /**
    * 动态调整输入框位置，补偿软键盘高度
-   * 使用 transform 向上推高输入框，防止被键盘遮挡
+   * 使用 bottom 属性配合 sticky 定位，将输入框推到键盘上方
    */
   function updateBottomPadding() {
     try {
       const composer = document.querySelector('#composer');
-      if (!composer) return;
+      if (!composer || !window.visualViewport) return;
 
-      const vvHeight = window.visualViewport?.height || window.innerHeight;
-      const windowHeight = window.innerHeight;
-      const keyboardHeight = Math.max(0, windowHeight - vvHeight);
+      const vv = window.visualViewport;
 
-      // 使用 transform 向上推高输入框
-      composer.style.transform = keyboardHeight > 0 ? `translateY(-${keyboardHeight}px)` : '';
+      // 兼容 iOS 和 Android 的键盘高度计算
+      // iOS: visualViewport 被推高，offsetTop > 0
+      // Android: layout viewport 可能变大，offsetTop = 0，用高度差计算
+      const keyboardHeight = Math.max(
+        vv.offsetTop || 0,
+        window.innerHeight - vv.height - (vv.offsetTop || 0)
+      );
+
+      // 键盘明显存在（> 30px）时才调整
+      composer.style.bottom = keyboardHeight > 30 ? keyboardHeight + 'px' : '';
     } catch (_) {}
   }
 
